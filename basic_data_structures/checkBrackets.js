@@ -31,19 +31,19 @@ function checkBrackets(text) {
     const curChar = text[p];
 
     if (['(', '[', '{'].includes(curChar)) {
-        stack.push(curChar);
+        stack.push({ char: curChar, pos: p + 1 });
     }
 
     if ([')', ']', '}'].includes(curChar)) {
-        if (curChar !== MATCHES[stack[stack.length - 1]]) {
-          return p + 1;
-        }
+      if (!stack.length || curChar !== MATCHES[stack[stack.length - 1].char]) {
+        return p + 1;
+      }
 
-        stack.pop();
+      stack.pop();
     }
   }
 
-  return stack.length ? stack.length : 'Success';
+  return stack.length ? stack[stack.length - 1].pos : 'Success';
 }
 
 readLines();

@@ -28,23 +28,33 @@ const readLines = () => {
 };
 
 function getHeight(stringTree) {
+  const plainTree = stringTree.split(' ');
+  const tree = {};
+  let stack = [];
   let height = 1;
-  let currentIndex = 0;
-  const tree = stringTree.split(' ');
 
-  const highestIndex = tree.reduce((acc, el, elIndex) => {
-    if (el > tree[acc]) {
-      return elIndex;
+  plainTree.forEach((el, i) => {
+    if (!tree[el]) {
+      tree[el] = new Array();
     }
 
-    return acc;
-  }, 0);
+    tree[el].push(i.toString());
+  });
 
-  currentIndex = parseInt(tree[highestIndex], 10);
+  stack.push(...tree['-1']);
 
-  while (currentIndex !== -1) {
-    currentIndex = parseInt(tree[currentIndex], 10);
-    height++;
+  while (stack.length) {
+    const nextStack = [];
+
+    stack.forEach(el => {
+      nextStack.push(...(tree[el] || []));
+    });
+
+    stack = nextStack;
+
+    if (stack.length) {
+      height++;
+    }
   }
 
   return height;
