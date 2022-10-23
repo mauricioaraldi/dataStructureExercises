@@ -7,6 +7,8 @@
 //                 0 1
 //                 1 3
 
+const SWAPS = [];
+
 const readline = require('readline');
 const rl = readline.createInterface({
   input: process.stdin,
@@ -22,22 +24,23 @@ const readLines = () => {
     rl.once('line', line => {
       const arr = line.toString().split(' ').map(v => parseInt(v, 10));
 
-      process.stdout.write(heapSort(arr).toString());
+      heapSort(arr);
+
+      process.stdout.write(`${SWAPS.length.toString()}\n`);
+
+      SWAPS.forEach(swap => process.stdout.write(`${swap.join(' ')}\n`));
+
       process.exit();
     });
   });
 };
 
 function buildHeap(arr) {
-  let heapArray = [...arr];
-
-  let i = Math.floor(heapArray.length / 2);
+  let i = Math.floor(arr.length / 2);
 
   while(i--) {
-    heapArray = siftDown(i, heapArray);
+    siftDown(i, arr, arr.length, true);
   }
-
-  return heapArray;
 }
 
 function getLeftChildren(i) {
@@ -48,50 +51,53 @@ function getRightChildren(i) {
   return 2 * i + 2;
 }
 
-function siftDown(i, arr) {
-  const heapArray = [...arr];
+function siftDown(i, arr, usableSize, registerSwap) {
   let maxIndex = i;
   const leftChildren = getLeftChildren(i);
   const rightChildren = getRightChildren(i);
 
-  if (leftChildren <= heapArray.length && heapArray[leftChildren] > heapArray[maxIndex]) {
+  if (leftChildren <= usableSize && arr[leftChildren] < arr[maxIndex]) {
     maxIndex = leftChildren;
   }
 
-  if (rightChildren <= heapArray.length && heapArray[rightChildren] > heapArray[maxIndex]) {
+  if (rightChildren <= usableSize && arr[rightChildren] < arr[maxIndex]) {
     maxIndex = rightChildren;
   }
 
   if (i != maxIndex) {
-    const firstSwapEl = heapArray[i];
-    const lastSwapEl = heapArray[maxIndex];
+    const firstSwapEl = arr[i];
+    const lastSwapEl = arr[maxIndex];
 
-    heapArray[i] = lastSwapEl;
-    heapArray[maxIndex] = firstSwapEl;
+    if (registerSwap) {
+      SWAPS.push([i, maxIndex]);
+    }
 
-    return siftDown(maxIndex, heapArray);
+    arr[i] = lastSwapEl;
+    arr[maxIndex] = firstSwapEl;
+
+    return siftDown(maxIndex, arr, usableSize, registerSwap);
   }
-
-  return heapArray;
 }
 
 function heapSort(arr) {
-  let size = arr.length;
-  let heapArray = buildHeap(arr);
+  let size = arr.length - 1;
 
-    // for (let i = 0; i <= arr.length - 1; i++) {
-  //   const firstSwapEl = heapArray[0];
-  //   const lastSwapEl = heapArray[size];
+  buildHeap(arr);
 
-  //   heapArray[0] = lastSwapEl;
-  //   heapArray[size] = firstSwapEl;
+  // Ordering output array. Not really needed for the exercise (commenting to save memory and execution time)
+  // for (let i = 0; i <= arr.length - 1; i++) {
+  //   const firstEl = arr[0];
+  //   const lastSizeEl = arr[size];
+
+  //   arr[0] = lastSizeEl;
+  //   arr[size] = firstEl;
 
   //   size = size - 1;
 
-  //   heapArray = siftDown(0, heapArray);
+  //   arr = siftDown(0, arr, size, false);
   // }
 
-  console.log(heapArray);
+  return arr;
 }
 
 readLines();

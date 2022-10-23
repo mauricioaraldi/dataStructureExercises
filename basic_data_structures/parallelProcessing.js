@@ -19,18 +19,40 @@ const readLines = () => {
   process.stdin.setEncoding('utf8');
 
   rl.once('line', line => {
-    const [threadsQt, jobsQt] = line.toString().split(' ');
+    const [threadsQt, jobsQt] = line.toString().split(' ').map(v => parseInt(v, 10));
 
     rl.once('line', line => {
-      const times = line.toString();
+      const times = line.split(' ').map(v => parseInt(v, 10));
 
-      process.stdout.write(parallelProccess(threadsQt, jobsQt, times).toString());
+      const processedJobs = parallelProccess(threadsQt, jobsQt, times);
+
+      processedJobs.forEach(job => {
+        process.stdout.write(`${job.join(' ').toString()}\n`);
+      });
+
       process.exit();
     });
   });
 };
 
-function parallelProccess(threadsQt, jobsQt, times) {
+function parallelProccess(threadsQt, jobsQt, jobTimes) {
+  const threads = new Array(threadsQt);
+  const processedJobs = [];
+  let currentTime = 0;
+
+  while (processedJobs.length < jobsQt) {
+    for (let i = 0; i < threads.length; i++) {
+      if (!threads[i] || !--threads[i]) {
+        threads[i] = jobTimes.shift();
+
+        processedJobs.push([i, currentTime]);
+      }
+    }
+
+    currentTime++;
+  }
+
+  return processedJobs;
 }
 
 readLines();
