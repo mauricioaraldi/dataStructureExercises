@@ -35,21 +35,57 @@ const readLines = () => {
   });
 };
 
+function getLeftChildren(i) {
+  return 2 * i + 1;
+}
+
+function getRightChildren(i) {
+  return 2 * i + 2;
+}
+
+function siftDown(i, arr) {
+  let maxIndex = i;
+  const leftChildren = getLeftChildren(i);
+  const rightChildren = getRightChildren(i);
+
+  if (leftChildren <= arr.length && arr[leftChildren] < arr[maxIndex]) {
+    maxIndex = leftChildren;
+  }
+
+  if (rightChildren <= arr.length && arr[rightChildren] < arr[maxIndex]) {
+    maxIndex = rightChildren;
+  }
+
+  if (i != maxIndex) {
+    const firstSwapEl = arr[i];
+    const lastSwapEl = arr[maxIndex];
+
+    arr[i] = lastSwapEl;
+    arr[maxIndex] = firstSwapEl;
+
+    return siftDown(maxIndex, arr);
+  }
+}
+
 function parallelProccess(threadsQt, jobsQt, jobTimes) {
-  const threads = new Array(threadsQt);
   const processedJobs = [];
-  let currentTime = 0;
+  const threadsHeap = new Array(threadsQt);
+  let currentSecond = 0;
+
+  for (let i = 0; i < threadsQt; i++) {
+    threadsHeap[i] = i / (threadsQt + 1);
+  }
 
   while (processedJobs.length < jobsQt) {
-    for (let i = 0; i < threads.length; i++) {
-      if (!threads[i] || !--threads[i]) {
-        threads[i] = jobTimes.shift();
+    const threadTime = parseInt(threadsHeap[0]);
+    const threadIdentifier = threadsHeap[0].toString().split('.')[1];
+    const nextJob = jobTimes.shift();
 
-        processedJobs.push([i, currentTime]);
-      }
-    }
+    processedJobs.push([Math.round(parseFloat(`0.${threadIdentifier}`) * (threadsQt + 1)), threadTime]);
 
-    currentTime++;
+    threadsHeap[0] = nextJob + threadsHeap[0];
+
+    siftDown(0, threadsHeap);
   }
 
   return processedJobs;
