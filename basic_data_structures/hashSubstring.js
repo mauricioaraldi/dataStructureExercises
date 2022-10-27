@@ -53,11 +53,10 @@ function preComputeHashes(text, patternLength, prime, generator) {
   let i = text.length - patternLength;
 
   while (i--) {
-    // hashes[i] = (
-    //   hashes[i + 1] * generator + 
-    //   ((((text.charCodeAt(i) - y * text.charCodeAt(i + patternLength)) % prime) + prime) % prime)
-    // ) % prime;
-    hashes[i] = (hashes[i + 1] * generator + text.charCodeAt(i) - y * text.charCodeAt(i + patternLength)) % prime;
+    hashes[i] = (
+      hashes[i + 1] * generator + 
+      ((((text.charCodeAt(i) - y * text.charCodeAt(i + patternLength)) % prime) + prime) % prime)
+    ) % prime;
   }
 
   return hashes;
@@ -65,19 +64,17 @@ function preComputeHashes(text, patternLength, prime, generator) {
 
 function rabinKarp(text, pattern) {
   // const generator = Math.floor(Math.random() * (PRIME - 2) + 1);
-  const generator = 169033364;
+  const generator = 263;
   const patternHash = polyHash(pattern, PRIME, generator);
   const computedHashes = preComputeHashes(text, pattern.length, PRIME, generator);
   const positions = [];
 
-  console.log(patternHash, computedHashes);
-
   for (let i = 0; i <= text.length - pattern.length; i++) {
-    if (patternHash != computedHashes[i]) {
+    if (patternHash !== computedHashes[i]) {
       continue;
     }
 
-    if (pattern === text.slice(i, i + pattern.length - 1)) {
+    if (pattern === text.slice(i, i + pattern.length)) {
       positions.push(i);
     }
   }
