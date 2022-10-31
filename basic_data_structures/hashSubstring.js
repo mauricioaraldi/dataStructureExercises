@@ -115,9 +115,16 @@ function test() {
     const randomStringSize = Math.floor(Math.random() * (100 - 1) + 1);
     const randomString = generateRandomString(randomStringSize);
 
-    const expectedStringIndex = Math.floor(Math.random() * (randomStringSize - 0) + 0);
+    const expectedStringIndex = Math.floor(Math.random() * randomStringSize);
     const expectedStringSize = Math.floor(Math.random() * (randomString.slice(expectedStringIndex).length - 1) + 1);
-    const expectedString = randomString.slice(expectedStringIndex, expectedStringIndex + expectedStringSize);
+
+    let expectedString = randomString.slice(expectedStringIndex, expectedStringIndex + expectedStringSize);
+
+    const shouldExist = Math.floor(Math.random() * 10);
+
+    if (shouldExist === 0) {
+      expectedString = 'shouldNotExistActually';
+    }
 
     const resultIndexes = [];
 
@@ -144,15 +151,15 @@ function test() {
     };
   };
 
-  const NUMBER_OF_TESTS = 100000;
+  let numberOfTests = 500000;
 
-  for (let curTest = 0; curTest <= NUMBER_OF_TESTS; curTest++) {
+  while (numberOfTests--) {
     const test = runTest();
 
     if (test.result) {
-      console.log(`Success test ${curTest}`);
+      console.log(`Success. Tests left: ${numberOfTests}`);
     } else {
-      console.log(`Error test ${curTest}`);
+      console.log(`Error test ${numberOfTests}`);
       console.log(`Used string: ${test.randomString}`);
       console.log(`Searched for: ${test.expectedString}`);
       console.log(`Correct was: ${test.testResult}`);
