@@ -55,7 +55,15 @@ function preComputeHashes(text, patternLength, prime, generator) {
   while (i--) {
     hashes[i] = (
       hashes[i + 1] * generator + 
-      ((((text.charCodeAt(i) - y * text.charCodeAt(i + patternLength)) % prime) + prime) % prime)
+      (
+        (
+          (
+            (
+               text.charCodeAt(i) - y * text.charCodeAt(i + patternLength)
+            ) % prime
+          ) + prime
+        ) % prime
+      )
     ) % prime;
   }
 
@@ -83,9 +91,81 @@ function rabinKarp(text, pattern) {
 }
 
 function findPattern(pattern, text) {
+  if (!pattern || pattern.length > text.length) {
+    return '';
+  }
+
   return rabinKarp(text, pattern).join(' ');
 }
 
+function test() {
+  const generateRandomString = length => {
+      const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      let result = '';
+      let n = length;
+
+      while (n--) {
+        result += CHARS.charAt(Math.floor(Math.random() * CHARS.length));
+      }
+
+      return result;
+  }
+
+  const runTest = () => {
+    const randomStringSize = Math.floor(Math.random() * (100 - 1) + 1);
+    const randomString = generateRandomString(randomStringSize);
+
+    const expectedStringIndex = Math.floor(Math.random() * (randomStringSize - 0) + 0);
+    const expectedStringSize = Math.floor(Math.random() * (randomString.slice(expectedStringIndex).length - 1) + 1);
+    const expectedString = randomString.slice(expectedStringIndex, expectedStringIndex + expectedStringSize);
+
+    const resultIndexes = [];
+
+    let lastFoundIndex = undefined;
+    while (true) {
+      lastFoundIndex = randomString.indexOf(expectedString, lastFoundIndex + 1);
+
+      if (lastFoundIndex === -1) {
+        break;
+      }
+
+      resultIndexes.push(lastFoundIndex);
+    }
+
+    const testResult = resultIndexes.join(' ');
+    const algorithmResult = findPattern(expectedString, randomString);
+
+    return {
+      result: algorithmResult === testResult,
+      algorithmResult,
+      expectedString,
+      randomString,
+      testResult,
+    };
+  };
+
+  const NUMBER_OF_TESTS = 100000;
+
+  for (let curTest = 0; curTest <= NUMBER_OF_TESTS; curTest++) {
+    const test = runTest();
+
+    if (test.result) {
+      console.log(`Success test ${curTest}`);
+    } else {
+      console.log(`Error test ${curTest}`);
+      console.log(`Used string: ${test.randomString}`);
+      console.log(`Searched for: ${test.expectedString}`);
+      console.log(`Correct was: ${test.testResult}`);
+      console.log(`Got: ${test.algorithmResult}`);
+      break;
+    }
+  }
+
+  console.log('- - Finished tests - -');
+  process.exit();
+}
+
 readLines();
+// test();
 
 module.exports = findPattern;
