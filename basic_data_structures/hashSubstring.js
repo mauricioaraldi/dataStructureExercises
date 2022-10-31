@@ -99,8 +99,10 @@ function findPattern(pattern, text) {
 }
 
 function test() {
+  const MAX_STRING_SIZE = 100;
+
   const generateRandomString = length => {
-      const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+      const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
       let result = '';
       let n = length;
 
@@ -112,7 +114,7 @@ function test() {
   }
 
   const runTest = () => {
-    const randomStringSize = Math.floor(Math.random() * (100 - 1) + 1);
+    const randomStringSize = Math.floor(Math.random() * (MAX_STRING_SIZE - 1) + 1);
     const randomString = generateRandomString(randomStringSize);
 
     const expectedStringIndex = Math.floor(Math.random() * randomStringSize);
@@ -151,7 +153,7 @@ function test() {
     };
   };
 
-  let numberOfTests = 500000;
+  let numberOfTests = 100000;
 
   while (numberOfTests--) {
     const test = runTest();
