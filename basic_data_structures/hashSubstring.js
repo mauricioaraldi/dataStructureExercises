@@ -99,7 +99,7 @@ function findPattern(pattern, text) {
 }
 
 function test() {
-  const MAX_STRING_SIZE = 100;
+  const MAX_STRING_SIZE = 500000;
 
   const generateRandomString = length => {
       const CHARS = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz';
@@ -114,7 +114,8 @@ function test() {
   }
 
   const runTest = () => {
-    const randomStringSize = Math.floor(Math.random() * (MAX_STRING_SIZE - 1) + 1);
+    // const randomStringSize = Math.floor(Math.random() * (MAX_STRING_SIZE - 1) + 1);
+    const randomStringSize = MAX_STRING_SIZE;
     const randomString = generateRandomString(randomStringSize);
 
     const expectedStringIndex = Math.floor(Math.random() * randomStringSize);
@@ -123,22 +124,22 @@ function test() {
     let expectedString = randomString.slice(expectedStringIndex, expectedStringIndex + expectedStringSize);
 
     const shouldExist = Math.floor(Math.random() * 10);
+    const resultIndexes = [];
 
     if (shouldExist === 0) {
       expectedString = 'shouldNotExistActually';
-    }
+    } else {
+      let lastFoundIndex = undefined;
 
-    const resultIndexes = [];
+      while (true) {
+        lastFoundIndex = randomString.indexOf(expectedString, lastFoundIndex + 1);
 
-    let lastFoundIndex = undefined;
-    while (true) {
-      lastFoundIndex = randomString.indexOf(expectedString, lastFoundIndex + 1);
+        if (lastFoundIndex === -1) {
+          break;
+        }
 
-      if (lastFoundIndex === -1) {
-        break;
+        resultIndexes.push(lastFoundIndex);
       }
-
-      resultIndexes.push(lastFoundIndex);
     }
 
     const testResult = resultIndexes.join(' ');
@@ -153,7 +154,7 @@ function test() {
     };
   };
 
-  let numberOfTests = 100000;
+  let numberOfTests = 500;
 
   while (numberOfTests--) {
     const test = runTest();
@@ -174,7 +175,7 @@ function test() {
   process.exit();
 }
 
-readLines();
-// test();
+// readLines();
+test();
 
 module.exports = findPattern;
