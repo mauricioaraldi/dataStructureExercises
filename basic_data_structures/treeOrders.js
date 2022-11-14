@@ -52,9 +52,7 @@ function iteractiveTraverseByLevel(tree) {
   }
 
   const print = [];
-  const queue = [];
-
-  queue.push(tree[0]);
+  const queue = [tree[0]];
 
   while (queue.length) {
     const node = queue.pop();
@@ -74,6 +72,10 @@ function iteractiveTraverseByLevel(tree) {
 }
 
 function iteractiveTraverseInOrder(tree) {
+  if (!tree) {
+    return [];
+  }
+
   const queue = [];
   const print = [];
 
@@ -118,6 +120,10 @@ function recursiveTraverseInOrder(tree, nodeIndex = 0) {
 }
 
 function iteractiveTraversePreOrder(tree) {
+  if (!tree) {
+    return [];
+  }
+
   const queue = [tree[0]];
   const print = [];
 
@@ -162,6 +168,10 @@ function recursiveTraversePreOrder(tree, nodeIndex = 0) {
 }
 
 function iteractiveTraversePostOrder(tree) {
+  if (!tree) {
+    return [];
+  }
+
   const queue = [tree[0]];
   const visitOrder = [];
   const print = [];
@@ -221,12 +231,15 @@ function traverseTree(tree) {
   return print;
 }
 
-function testFullLeftHeight() {
+function test() {
   const tree = [];
-  const HEIGHT = 10000;
+  const HEIGHT = 100000;
 
   for (let i = 1; i < HEIGHT; i++) {
-    tree.push([i, i === HEIGHT - 1 ? -1 : i, -1]);
+    const left = i * 2 - 1;
+    const right = i * 2;
+
+    tree.push([i, left < HEIGHT - 1 ? left : -1, right < HEIGHT - 1 ? right : -1]);
   }
 
   const results = traverseTree(tree);
@@ -236,7 +249,7 @@ function testFullLeftHeight() {
   process.exit();
 }
 
-readLines();
-// testFullLeftHeight();
+// readLines();
+test();
 
 module.exports = traverseTree;
