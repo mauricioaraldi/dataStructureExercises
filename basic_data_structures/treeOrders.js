@@ -233,13 +233,13 @@ function traverseTree(tree) {
 
 function test() {
   const tree = [];
-  const HEIGHT = 100000;
+  const MAX_NODES = 1000000;
 
-  for (let i = 1; i < HEIGHT; i++) {
+  for (let i = 1; i < MAX_NODES; i++) {
     const left = i * 2 - 1;
     const right = i * 2;
 
-    tree.push([i, left < HEIGHT - 1 ? left : -1, right < HEIGHT - 1 ? right : -1]);
+    tree.push([i, left < MAX_NODES - 1 ? left : -1, right < MAX_NODES - 1 ? right : -1]);
   }
 
   const results = traverseTree(tree);
@@ -249,7 +249,7 @@ function test() {
   process.exit();
 }
 
-// readLines();
-test();
+readLines();
+// test();
 
 module.exports = traverseTree;
