@@ -3,24 +3,17 @@
 // the i-th vertex), left i (the index of the left child of the i-th vertex) and right
 // i (the index of the right child of the i-th vertex). If i doesn’t have left or right
 // child (or both), the corresponding left-i or right-i (or both) will be equal to −1.
-// Example input: 5
-//                4 1 2
-//                2 3 4
-//                5 -1 -1
+// Example input: 3
+//                2 1 2
 //                1 -1 -1
 //                3 -1 -1
-// Output: Three lines. The first line should contain the keys of the vertices in the
-// in-order traversal of the tree. The second line should contain the keys of the vertices
-// in the pre-order traversal of the tree. The third line should contain the keys of the
-// vertices in the post-order traversal of the tree.
-// Example output: 1 2 3 4 5
-//                 4 2 1 3 5
-//                 1 3 2 5 4
+// Output: "CORRECT" for a valid binary tree, or "INCORRECT" otherwise.
+// Example output: CORRECT
 
 import java.util.*;
 import java.io.*;
 
-public class treeOrders {
+public class isBst {
   class FastScanner {
     StringTokenizer tok = new StringTokenizer("");
     BufferedReader in;
@@ -34,13 +27,13 @@ public class treeOrders {
         tok = new StringTokenizer(in.readLine());
       return tok.nextToken();
     }
-  
+
     int nextInt() throws IOException {
       return Integer.parseInt(next());
     }
   }
 
-  public class TreeOrders {
+  public class Tree {
     int n;
     int[] key, left, right;
 
@@ -59,52 +52,57 @@ public class treeOrders {
       }
     }
 
-    List<Integer> inOrder(int nodeIndex) {
-      ArrayList<Integer> result = new ArrayList<Integer>();
+    private int getMaxValue(int nodeIndex) {
+      int nodeValue = key[nodeIndex];
+      int leftValue = Integer.MIN_VALUE;
+      int rightValue = Integer.MIN_VALUE;
 
       if (left[nodeIndex] != -1) {
-        inOrder(left[nodeIndex]);
+        leftValue = getMaxValue(left[nodeIndex]);
       }
-
-      System.out.print(key[nodeIndex] + " ");
 
       if (right[nodeIndex] != -1) {
-        inOrder(right[nodeIndex]);
+        rightValue = getMaxValue(right[nodeIndex]);
       }
 
-      return result;
+      return Math.max(nodeValue, Math.max(leftValue, rightValue));
     }
 
-    List<Integer> preOrder(int nodeIndex) {
-      ArrayList<Integer> result = new ArrayList<Integer>();
-
-      System.out.print(key[nodeIndex] + " ");
+    private int getMinValue(int nodeIndex) {
+      int nodeValue = key[nodeIndex];
+      int leftValue = Integer.MAX_VALUE;
+      int rightValue = Integer.MAX_VALUE;
 
       if (left[nodeIndex] != -1) {
-        preOrder(left[nodeIndex]);
+        leftValue = getMinValue(left[nodeIndex]);
       }
 
       if (right[nodeIndex] != -1) {
-        preOrder(right[nodeIndex]);
+        rightValue = getMinValue(right[nodeIndex]);
       }
 
-      return result;
+      return Math.min(nodeValue, Math.min(leftValue, rightValue));
     }
 
-    List<Integer> postOrder(int nodeIndex) {
-      ArrayList<Integer> result = new ArrayList<Integer>();
-
-      if (left[nodeIndex] != -1) {
-        postOrder(left[nodeIndex]);
+    boolean isBST(int nodeIndex) {
+      if (key.length < 1 || nodeIndex == -1) {
+        return true;
       }
 
-      if (right[nodeIndex] != -1) {
-        postOrder(right[nodeIndex]);
+      int nodeValue = key[nodeIndex];
+      int leftIndex = left[nodeIndex];
+      int rightIndex = right[nodeIndex];
+
+      if (
+        (leftIndex != -1 && getMaxValue(leftIndex) > nodeValue)
+        || (rightIndex != -1 && getMinValue(rightIndex) < nodeValue)
+        || (leftIndex != -1 && !isBST(leftIndex))
+        || (rightIndex != -1 && !isBST(rightIndex))
+      ) {
+        return false;
       }
 
-      System.out.print(key[nodeIndex] + " ");
-
-      return result;
+      return true;
     }
   }
 
@@ -112,7 +110,7 @@ public class treeOrders {
     new Thread(null, new Runnable() {
       public void run() {
         try {
-          new treeOrders().run();
+          new isBst().run();
         } catch (IOException e) {
           //
         }
@@ -121,14 +119,16 @@ public class treeOrders {
   }
 
   public void run() throws IOException {
-    TreeOrders tree = new TreeOrders();
+    Tree tree = new Tree();
 
     tree.read();
 
-    tree.inOrder(0);
-    System.out.println("");
-    tree.preOrder(0);
-    System.out.println("");
-    tree.postOrder(0);
+    boolean result = tree.isBST(0);
+
+    if (result == true) {
+      System.out.print("CORRECT");
+    } else {
+      System.out.print("INCORRECT");
+    }
   }
 }

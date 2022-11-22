@@ -34,7 +34,7 @@ const readLines = () => {
       vertices.push(verticeInfo);
 
       if (!--n) {
-        process.stdout.write(isTreeValid(vertices) ? 'CORRECT' : 'INCORRECT');
+        process.stdout.write(isBST(vertices) ? 'CORRECT' : 'INCORRECT');
 
         process.exit();
       }
@@ -42,38 +42,48 @@ const readLines = () => {
   });
 };
 
-function recursiveTraverseInOrder(tree, nodeIndex = 0) {
-  if (!tree) {
-    return [];
+function getMaxValue(tree, node) {
+  if (!node) {
+    return Number.MIN_VALUE;
   }
 
-  const print = [];
-  const node = tree[nodeIndex];
-
-  if (node[1] !== -1) {
-    print.push(...recursiveTraverseInOrder(tree, node[1]));
-  }
-
-  print.push(node[0]);
-
-  if (node[2] !== -1) {
-    print.push(...recursiveTraverseInOrder(tree, node[2]));
-  }
-
-  return print;
+  return Math.max(
+    node[0], 
+    Math.max(
+      getMaxValue(tree, tree[node[1]]),
+      getMaxValue(tree, tree[node[2]]),
+    ),
+  );
 }
 
-function isTreeValid(tree) {
-  const orderedValues = tree.map(n => n[0]).sort((a, b) => a - b);
-  const inOrderTraverse = recursiveTraverseInOrder(tree);
+function getMinValue(tree, node) {
+  if (!node) {
+    return Number.MAX_VALUE;
+  }
 
-  // console.log(orderedValues);
-  // console.log(inOrderTraverse);
+  return Math.min(
+    node[0], 
+    Math.min(
+      getMinValue(tree, tree[node[1]]),
+      getMinValue(tree, tree[node[2]]),
+    ),
+  );
+}
 
-  for (let i = 0; i < orderedValues.length; i++) {
-    if (orderedValues[i] !== inOrderTraverse[i]) {
-      return false;
-    }
+function isBST(tree, nodeIndex = 0) {
+  if (nodeIndex === -1) {
+    return true;
+  }
+
+  const node = tree[nodeIndex];
+
+  if (
+    (node[1] !== -1 && getMaxValue(tree, tree[node[1]]) > node[0])
+    || (node[2] !== -1 && getMinValue(tree, tree[node[2]]) < node[0])
+    || (node[1] !== -1 && !isBST(tree, node[1]))
+    || (node[2] !== -1 && !isBST(tree, node[2]))
+  ) {
+    return false;
   }
 
   return true;
@@ -81,4 +91,4 @@ function isTreeValid(tree) {
 
 readLines();
 
-module.exports = isTreeValid;
+module.exports = isBST;
