@@ -13,7 +13,7 @@
 import java.util.*;
 import java.io.*;
 
-public class isBst {
+public class isBstWithDuplicate {
   class FastScanner {
     StringTokenizer tok = new StringTokenizer("");
     BufferedReader in;
@@ -53,7 +53,10 @@ public class isBst {
     }
 
     boolean isBST(int nodeIndex, int min, int max) {
+      System.out.println(nodeIndex + " " + key[nodeIndex] + " " + min + " " + max);
+
       if (key[nodeIndex] < min || key[nodeIndex] > max) {
+        System.out.println("Returned at"+ " " + nodeIndex + " " + key[nodeIndex] + " " + min + " " + max);
         return false;
       }
 
@@ -65,7 +68,7 @@ public class isBst {
       }
 
       if (right[nodeIndex] != -1) {
-        rightValue = isBST(right[nodeIndex], key[nodeIndex] + 1, max);
+        rightValue = isBST(right[nodeIndex], key[nodeIndex], max);
       }
 
       return leftValue && rightValue;
@@ -76,7 +79,7 @@ public class isBst {
     new Thread(null, new Runnable() {
       public void run() {
         try {
-          new isBst().run();
+          new isBstWithDuplicate().run();
         } catch (IOException e) {
           //
         }

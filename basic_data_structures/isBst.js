@@ -34,7 +34,7 @@ const readLines = () => {
       vertices.push(verticeInfo);
 
       if (!--n) {
-        process.stdout.write(isBST(vertices) ? 'CORRECT' : 'INCORRECT');
+        process.stdout.write(isTreeBST(vertices) ? 'CORRECT' : 'INCORRECT');
 
         process.exit();
       }
@@ -42,51 +42,22 @@ const readLines = () => {
   });
 };
 
-function getMaxValue(tree, node) {
-  if (!node) {
-    return Number.MIN_VALUE;
-  }
-
-  return Math.max(
-    node[0], 
-    Math.max(
-      getMaxValue(tree, tree[node[1]]),
-      getMaxValue(tree, tree[node[2]]),
-    ),
-  );
-}
-
-function getMinValue(tree, node) {
-  if (!node) {
-    return Number.MAX_VALUE;
-  }
-
-  return Math.min(
-    node[0], 
-    Math.min(
-      getMinValue(tree, tree[node[1]]),
-      getMinValue(tree, tree[node[2]]),
-    ),
-  );
-}
-
-function isBST(tree, nodeIndex = 0) {
-  if (nodeIndex === -1) {
+function isBST(tree, nodeIndex = 0, min, max) {
+  if (!tree[nodeIndex]) {
     return true;
   }
 
   const node = tree[nodeIndex];
 
-  if (
-    (node[1] !== -1 && getMaxValue(tree, tree[node[1]]) > node[0])
-    || (node[2] !== -1 && getMinValue(tree, tree[node[2]]) < node[0])
-    || (node[1] !== -1 && !isBST(tree, node[1]))
-    || (node[2] !== -1 && !isBST(tree, node[2]))
-  ) {
+  if (node[0] < min || node[0] > max) {
     return false;
   }
 
-  return true;
+  return isBST(tree, node[1], min, node[0] - 1) && isBST(tree, node[2], node[0] + 1, max);
+}
+
+function isTreeBST(tree) {
+  return isBST(tree, 0, Math.MIN_VALUE, Math.MAX_VALUE);
 }
 
 readLines();
