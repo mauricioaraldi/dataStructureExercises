@@ -52,11 +52,8 @@ public class isBstWithDuplicate {
       }
     }
 
-    boolean isBST(int nodeIndex, int min, int max) {
-      System.out.println(nodeIndex + " " + key[nodeIndex] + " " + min + " " + max);
-
-      if (key[nodeIndex] < min || key[nodeIndex] > max) {
-        System.out.println("Returned at"+ " " + nodeIndex + " " + key[nodeIndex] + " " + min + " " + max);
+    boolean isBST(int nodeIndex, long min, long max) {
+      if (key[nodeIndex] < min || key[nodeIndex] >= max) {
         return false;
       }
 
@@ -64,7 +61,7 @@ public class isBstWithDuplicate {
       boolean rightValue = true;
 
       if (left[nodeIndex] != -1) {
-        leftValue = isBST(left[nodeIndex], min, key[nodeIndex] - 1);
+        leftValue = isBST(left[nodeIndex], min, key[nodeIndex]);
       }
 
       if (right[nodeIndex] != -1) {
@@ -97,7 +94,7 @@ public class isBstWithDuplicate {
       return;
     }
 
-    boolean result = tree.isBST(0, Integer.MIN_VALUE, Integer.MAX_VALUE);
+    boolean result = tree.isBST(0, Long.MIN_VALUE, Long.MAX_VALUE);
 
     if (result == true) {
       System.out.print("CORRECT");
