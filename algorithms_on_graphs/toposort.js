@@ -48,6 +48,8 @@ function buildGraph(verticesQt) {
   for (let i = 1; i <= verticesQt; i++) {
     graph[i] = {
       edges: new Set(),
+      // reverseEdges: new Set(),
+      visited: false,
     };
   }
 
@@ -57,13 +59,14 @@ function buildGraph(verticesQt) {
 function createConnections(graph, connections) {
   connections.forEach(([origin, destiny]) => {
     graph[origin].edges.add(destiny);
+    // graph[destiny].reverseEdges.add(origin);
   });
 }
 
 function findSinkList(graph, v, order = []) {
-  console.log('Find sink list', v);
+  // console.log('Find sink list', v);
 
-  if (!graph[v]) {
+  if (graph[v].visited) {
     return order;
   }
 
@@ -81,7 +84,7 @@ function findSinkList(graph, v, order = []) {
     while(graph[sinkNode].edges.size && !nextNode) {
       nextNode = graph[sinkNode].edges.keys().next().value;
 
-      if (!graph[nextNode]) {
+      if (graph[nextNode].visited) {
         graph[sinkNode].edges.delete(nextNode);
         nextNode = null;
       }
@@ -98,19 +101,40 @@ function findSinkList(graph, v, order = []) {
 }
 
 function cleanSinkList(sinkList, graph, order) {
-  console.log('Clean sink list', sinkList);
+  // console.log('Clean sink list', sinkList);
 
   while (sinkList.length) {
     const sink = sinkList.pop();
 
-    while (graph[sink].edges.size) {
-      cleanSinkList(findSinkList(graph, sink), graph, order);
+    if (graph[sink].visited) {
+      order.unshift(sink);
+      continue;
     }
 
-    order.unshift(sink);
-    delete graph[sink];
+    while (!graph[sink].visited && graph[sink].edges.size) {
+      const nextEdge = graph[sink].edges.keys().next().value;
 
-    if (sinkList.length > 1) {
+      if (!graph[nextEdge].visited) {
+        cleanSinkList(findSinkList(graph, sink), graph, order);
+      } else {
+        graph[sink].edges.delete(nextEdge);
+      }
+    }
+
+    if (graph[sink].visited) {
+      return;
+    }
+
+    // while (graph[sink].reverseEdges.size) {
+    //   const nextReverseEdge = graph[sink].reverseEdges.keys().next().value;
+    //   graph[sink].reverseEdges.delete(nextReverseEdge);
+    //   graph[nextReverseEdge].edges.delete(sink);
+    // }
+
+    order.push(sink);
+    graph[sink].visited = true;
+
+    if (sinkList.length > 0) {
       const previousSink = sinkList[sinkList.length - 1];
 
       graph[previousSink].edges.delete(sink);
@@ -118,10 +142,12 @@ function cleanSinkList(sinkList, graph, order) {
   }
 }
 
-function toposort(verticesQt, connections) {
+function toposort(verticesQt, connections, time = new Date().getTime()) {
   const graph = buildGraph(verticesQt);
 
   createConnections(graph, connections);
+
+  console.log(`Connections created: ${new Date().getTime() - time}`);
 
   const order = [];
 
@@ -132,21 +158,28 @@ function toposort(verticesQt, connections) {
     cleanSinkList(sinkOrder, graph, order);
   }
 
-  return order.join(' ');
+  return order.reverse().join(' ');
 }
 
 // readLines();
 test();
 
 function test() {
-  const verticesQt = 10;
+  const verticesQt = 100000;
   const connections = [];
 
   for (let i = 1; i < verticesQt; i++) {
     connections.push([i, i + 1]);
   }
 
-  process.stdout.write(toposort(verticesQt, connections).toString());
+  const start = new Date().getTime();
+
+  toposort(verticesQt, connections, start);
+
+  // process.stdout.write(toposort(verticesQt, connections).toString());
+
+  console.log(`Finished time: ${new Date().getTime() - start}`);
+
   process.exit();
 }
 
