@@ -48,8 +48,6 @@ function buildGraph(verticesQt) {
   for (let i = 1; i <= verticesQt; i++) {
     graph[i] = {
       edges: new Set(),
-      // reverseEdges: new Set(),
-      visited: false,
     };
   }
 
@@ -59,128 +57,67 @@ function buildGraph(verticesQt) {
 function createConnections(graph, connections) {
   connections.forEach(([origin, destiny]) => {
     graph[origin].edges.add(destiny);
-    // graph[destiny].reverseEdges.add(origin);
   });
 }
 
-function findSinkList(graph, v, order = []) {
-  // console.log('Find sink list', v);
+function dfs(graph, stack, used, order) {
+  const visited = new Set();
 
-  if (graph[v].visited) {
-    return order;
-  }
+  while(stack.length) {
+    const current = stack[stack.length - 1];
 
-  order.push(v);
-
-  if (!graph[v].edges.size) {
-    return order;
-  }
-
-  let sinkNode = v;
-
-  while (sinkNode) {
-    let nextNode = null;
-
-    while(graph[sinkNode].edges.size && !nextNode) {
-      nextNode = graph[sinkNode].edges.keys().next().value;
-
-      if (graph[nextNode].visited) {
-        graph[sinkNode].edges.delete(nextNode);
-        nextNode = null;
-      }
-    }
-
-    if (nextNode) {
-      order.push(nextNode);
-    }
-
-    sinkNode = nextNode;
-  }
-
-  return order;
-}
-
-function cleanSinkList(sinkList, graph, order) {
-  // console.log('Clean sink list', sinkList);
-
-  while (sinkList.length) {
-    const sink = sinkList.pop();
-
-    if (graph[sink].visited) {
-      order.unshift(sink);
+    if (used.has(current)) {
+      stack.pop();
       continue;
     }
 
-    while (!graph[sink].visited && graph[sink].edges.size) {
-      const nextEdge = graph[sink].edges.keys().next().value;
+    if (visited.has(current)) {
+      order.push(current);
 
-      if (!graph[nextEdge].visited) {
-        cleanSinkList(findSinkList(graph, sink), graph, order);
-      } else {
-        graph[sink].edges.delete(nextEdge);
-      }
+      stack.pop();
+
+      used.add(current);
+
+      continue;
     }
 
-    if (graph[sink].visited) {
-      return;
-    }
+    if (graph[current].edges.size) {
+        visited.add(current);
 
-    // while (graph[sink].reverseEdges.size) {
-    //   const nextReverseEdge = graph[sink].reverseEdges.keys().next().value;
-    //   graph[sink].reverseEdges.delete(nextReverseEdge);
-    //   graph[nextReverseEdge].edges.delete(sink);
-    // }
+        graph[current].edges.forEach(edge => {
+          if (!used.has(edge)) {
+            stack.push(edge);
+          }
+        });
+    } else {
+      order.push(current);
 
-    order.push(sink);
-    graph[sink].visited = true;
+      stack.pop();
 
-    if (sinkList.length > 0) {
-      const previousSink = sinkList[sinkList.length - 1];
-
-      graph[previousSink].edges.delete(sink);
+      used.add(current);
     }
   }
 }
 
-function toposort(verticesQt, connections, time = new Date().getTime()) {
+function toposort(verticesQt, connections) {
   const graph = buildGraph(verticesQt);
 
   createConnections(graph, connections);
 
-  console.log(`Connections created: ${new Date().getTime() - time}`);
-
   const order = [];
+  const used = new Set();
 
-  while (order.length < verticesQt) {
-    const nextNode = parseInt(Object.keys(graph)[0], 10);
-    const sinkOrder = findSinkList(graph, nextNode);
+  for(let i = 1; i <= verticesQt; i++) {
+    const stack = [];
 
-    cleanSinkList(sinkOrder, graph, order);
+    stack.push(i);
+
+    dfs(graph, stack, used, order);
   }
 
   return order.reverse().join(' ');
 }
 
-// readLines();
-test();
-
-function test() {
-  const verticesQt = 100000;
-  const connections = [];
-
-  for (let i = 1; i < verticesQt; i++) {
-    connections.push([i, i + 1]);
-  }
-
-  const start = new Date().getTime();
-
-  toposort(verticesQt, connections, start);
-
-  // process.stdout.write(toposort(verticesQt, connections).toString());
-
-  console.log(`Finished time: ${new Date().getTime() - start}`);
-
-  process.exit();
-}
+readLines();
 
 module.exports = toposort;
