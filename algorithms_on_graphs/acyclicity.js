@@ -1,10 +1,12 @@
 // Input: First line "n m", where n is number of vertices and m number of edges. After this,
 // m lines with "u v", where both are connected vertices of the graph.
-// Example input: 4 2
+// Example input: 4 4
 //                1 2
-//                3 2
-// Output: Number of connected components of the graph
-// Example output: 2
+//                4 1
+//                2 3
+//                3 1
+// Output: 1 if there is a cycle. 0 otherwise
+// Example output: 1
 
 const readline = require('readline');
 const rl = readline.createInterface({
@@ -32,7 +34,7 @@ const readLines = () => {
       connections.push(link);
 
       if (!--n) {
-        process.stdout.write(checkConnectedComponents(vertices, connections).toString());
+        process.stdout.write(checkAcyclicity(vertices, connections).toString());
         process.exit();
       }
     };
@@ -41,15 +43,16 @@ const readLines = () => {
   });
 };
 
-function explore(graph, v) {
+function exploreCycles(graph, v, cycleVisited) {
   graph[v].visited = true;
+  cycleVisited.add(v);
 
-  graph[v].edges.forEach(neighbor => {
-    if (graph[neighbor].visited) {
-      return;
+  return Array.from(graph[v].edges).some(neighbor => {
+    if (cycleVisited.has(neighbor)) {
+      return true;
     }
 
-    explore(graph, neighbor);
+    return exploreCycles(graph, neighbor, new Set(cycleVisited));
   });
 }
 
@@ -69,33 +72,25 @@ function buildGraph(verticesQt) {
 function createConnections(graph, connections) {
   connections.forEach(([origin, destiny]) => {
     graph[origin].edges.add(destiny);
-    graph[destiny].edges.add(origin);
   });
 }
 
-function checkConnectedComponents(verticesQt, connections) {
+function checkAcyclicity(verticesQt, connections) {
   const graph = buildGraph(verticesQt);
 
   createConnections(graph, connections);
 
-  if (!connections || !connections.length) {
-    return verticesQt;
-  }
-
-  let connectedComponents = 0;
-
-  Object.keys(graph).forEach(node => {
+  return Object.keys(graph).some(node => {
     if (graph[node].visited) {
-      return;
+      return false;
     }
 
-    explore(graph, node);
-    connectedComponents++;
-  });
+    const cycleVisited = new Set();
 
-  return connectedComponents;
+    return exploreCycles(graph, node, cycleVisited);
+  }) ? 1 : 0;
 }
 
 readLines();
 
-module.exports = checkConnectedComponents;
+module.exports = checkAcyclicity;

@@ -60,8 +60,6 @@ function explore(graph, v) {
       return;
     }
 
-    graph[neighbor].visited = true;
-
     explore(graph, neighbor);
   });
 }
