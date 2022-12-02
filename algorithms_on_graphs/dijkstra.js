@@ -54,6 +54,8 @@ const readLines = () => {
 
 class PriorityQueue {
   #heap = [];
+  #positionKey = {};
+  #keyPosition = {};
 
   #getLeftChild(index) {
      return index * 2 + 1;
@@ -69,27 +71,35 @@ class PriorityQueue {
 
   #swap(a, b) {
     const tmp = this.#heap[a];
+    const aKey = this.#positionKey[a];
+    const bKey = this.#positionKey[b];
 
     this.#heap[a] = this.#heap[b];
     this.#heap[b] = tmp;
+
+    this.#positionKey[a] = bKey;
+    this.#positionKey[b] = aKey;
+
+    this.#keyPosition[aKey] = b;
+    this.#keyPosition[bKey] = a;
   }
 
   #siftDown(index) {
-    const left = this.#getLeftChild(index);
-    const right = this.#getRightChild(index);
-    let minIndex = index;
+    const leftChild = this.#getLeftChild(index);
+    const rightChild = this.#getRightChild(index);
+    let maxIndex = index;
 
-    if (left < this.#heap.length && this.#heap[smallest] < this.#heap[left]) {
-      minIndex = left;
+    if (leftChild < this.#heap.length && this.#heap[leftChild] < this.#heap[maxIndex]) {
+      maxIndex = leftChild;
     }
 
-    if (right < this.#heap.length && this.#heap[smallest] < this.#heap[right]) {
-      minIndex = right;
+    if (rightChild < this.#heap.length && this.#heap[rightChild] < this.#heap[maxIndex]) {
+      maxIndex = rightChild;
     }
 
-    if (minIndex != index) {
-      this.#swap(minIndex, index);
-      this.#siftDown(minIndex);
+    if (maxIndex != index) {
+      this.#swap(maxIndex, index);
+      this.#siftDown(maxIndex);
     }
   }
 
@@ -97,7 +107,7 @@ class PriorityQueue {
     let newIndex = index;
     let parentIndex = this.#getParent(index);
 
-    while (newIndex !== 0 && this.#heap[newIndex] > this.#heap[parentIndex]) {
+    while (newIndex !== 0 && this.#heap[newIndex] < this.#heap[parentIndex]) {
       this.#swap(newIndex, parentIndex);
       newIndex = parentIndex;
       parentIndex = this.#getParent(newIndex);
@@ -108,28 +118,45 @@ class PriorityQueue {
     return this.#heap[0];
   }
 
-  insert(element) {
-    this.#siftUp(this.#heap.push(element));
+  insert(priority, key) {
+    const newIndex = this.#heap.push(priority) - 1;
+
+    this.#keyPosition[key] = newIndex;
+    this.#positionKey[newIndex] = key;
+
+    this.#siftUp(newIndex);
   }
 
-  extractMax() {
+  extractMin() {
     const root = this.#heap[0];
+    const rootKey = this.#positionKey[0];
+    const lastElementIndex = this.#heap.length - 1;
+    const lastElementKey = this.#positionKey[lastElementIndex];
+    const lastElement = this.#heap.pop();
 
-    this.#heap[0] = this.#heap.pop();
+    delete this.#keyPosition[rootKey];
 
-    this.#siftDown(0);
+    if (this.#heap.length) {
+      this.#heap[0] = lastElement;
 
-    return root;
+      this.#positionKey[0] = lastElementKey;
+      this.#keyPosition[lastElementKey] = 0;
+
+      this.#siftDown(0);
+    }
+
+    return { value: root, key: rootKey };
   }
 
-  changePriority(index, newPriority) {
-    const oldPriority = this.#heap[index];
-    this.#heap[index] = newPriority;
+  changePriority(key, newPriority) {
+    const elementPosition = this.#keyPosition[key];
+    const oldPriority = this.#heap[elementPosition];
+    this.#heap[elementPosition] = newPriority;
 
-    if (newPriority > oldPriority) {
-      this.#siftUp(index);
+    if (newPriority < oldPriority) {
+      this.#siftUp(elementPosition);
     } else {
-      this.#siftDown(index);
+      this.#siftDown(elementPosition);
     }
   }
 
@@ -145,9 +172,9 @@ class PriorityQueue {
 function buildGraph(verticesQt) {
   const graph = {};
 
-  for (let i = 1; i <= verticesQt; i++) {
+  for (let i = 0; i < verticesQt; i++) {
     graph[i] = {
-      edges: new Set(),
+      edges: {},
     };
   }
 
@@ -155,16 +182,35 @@ function buildGraph(verticesQt) {
 }
 
 function createConnections(graph, connections) {
-  connections.forEach(([origin, destiny]) => {
-    graph[origin].edges.add(destiny);
+  connections.forEach(([origin, destiny, weight]) => {
+    graph[origin - 1].edges[destiny - 1] = weight;
   });
 }
 
 function dijkstra(graph, verticesQt, start) {
   const dist = new Array(verticesQt).fill(Infinity);
-  const prev = new Array(verticesQt);
 
   dist[start] = 0;
+
+  const queue = new PriorityQueue();
+
+  dist.forEach((v, i) => queue.insert(v, i));
+
+  while (!queue.isEmpty) {
+    const { value: node, key } = queue.extractMin();
+
+    Object.entries(graph[key].edges).forEach(([edge, weight]) => {
+      const edgeDistance = dist[key] + weight;
+
+      if (dist[edge] > edgeDistance) {
+        dist[edge] = edgeDistance;
+
+        queue.changePriority(edge, dist[edge]);
+      }
+    });
+  }
+
+  return dist;
 }
 
 function findShortestPath(verticesQt, connections, start, end) {
@@ -172,9 +218,9 @@ function findShortestPath(verticesQt, connections, start, end) {
 
   createConnections(graph, connections);
 
-  dijkstra(graph, verticesQt, start);
+  const distances = dijkstra(graph, verticesQt, start - 1);
 
-  return -1;
+  return distances[end - 1] === Infinity ? -1 : distances[end - 1];
 }
 
 readLines();
