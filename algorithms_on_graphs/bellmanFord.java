@@ -5,7 +5,7 @@
 //                4 1 2
 //                2 3 2
 //                3 1 1
-// Output: 1 is there's a negative cycle. 0 otherwise.
+// Output: 1 if there's a negative cycle. 0 otherwise.
 // Example output: 1
 
 import java.util.ArrayList;
