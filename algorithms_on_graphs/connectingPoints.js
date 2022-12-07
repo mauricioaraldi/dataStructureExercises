@@ -24,7 +24,7 @@ const readLines = () => {
 
   rl.once('line', line => {
     const n = parseInt(line.toString(), 10);
-    const points = new Array(n);
+    const points = [];
 
     rl.on('line', line => {
       let coordinates = line.toString().split(' ').map(v => parseInt(v, 10));
@@ -39,78 +39,111 @@ const readLines = () => {
   });
 };
 
-function createEdges(points) {
-  const graph = {};
+class DisjointSet {
+  parent;
+  rank;
+
+  constructor(size) {
+    this.parent = new Array(size);
+    this.rank = new Array(size);
+  }
+
+  makeSet(i) {
+    this.parent[i] = i;
+    this.rank[i] = 0;
+  }
+
+  find(i) {
+    while (i !== this.parent[i]) {
+      i = this.parent[i];
+    }
+
+    return i;
+  }
+
+  union(i, j) {
+    const iId = this.find(i);
+    const jId = this.find(j);
+
+    if (iId === jId) {
+      return;
+    }
+
+    if (this.rank[iId] > this.rank[jId]) {
+      this.parent[jId] = iId;
+    } else {
+      this.parent[iId] = jId;
+
+      if (this.rank[iId] === this.rank[jId]) {
+        this.rank[jId]++;
+      }
+    }
+  }
+}
+
+function createEdgesAndSets(points) {
+  const edges = [];
+  const set = new DisjointSet(points.length);
   let n = points.length;
 
   while (n--) {
-    // if (!graph[n]) {
-      graph[n] = {
-        x: points[n][0],
-        y: points[n][1],
-        edges: {},
-      };
-    // }
-
     let m = n;
 
-    while (--m > -1) {
-      // if (!graph[m]) {
-      //   graph[m] = {
-      //     x: points[m][0],
-      //     y: points[m][1],
-      //     edges: {},
-      //   };
-      // }
+    set.makeSet(n);
 
+    while (--m > -1) {
       const distanceX = Math.abs(points[n][0] - points[m][0]);
       const distanceY = Math.abs(points[n][1] - points[m][1]);
 
-      graph[n].edges[m] = Math.sqrt((distanceX * 2) + (distanceY * 2));
-      // graph[m].edges[n] = graph[n].edges[m];
+      const powerX = Math.pow(distanceX, 2);
+      const powerY = Math.pow(distanceY, 2);
+
+      edges.push({
+        origin: n,
+        destiny: m,
+        weight: Math.sqrt(powerX + powerY),
+      });
     }
   }
 
-  return graph;
+  return { edges, set };
 }
 
 function checkShortestPath(points) {
-  const graph = createEdges(points);
-  const edges = [];
+  const shortestPath = [];
+  const { edges, set } = createEdgesAndSets(points);
 
-  // Object.entries(graph).forEach(([nodeKey, nodeValue]) => {
-  //   Object.entries(nodeValue.edges).forEach(([edgeKey, edgeWeight]) => {
-  //     edges.push([nodeKey, edgeKey]);
-  //   });
-  // });
+  edges.sort((a, b) => a.weight - b.weight);
 
+  edges.forEach(edge => {
+    if (set.find(edge.origin) !== set.find(edge.destiny)) {
+      shortestPath.push(edge);
+      set.union(edge.origin, edge.destiny);
+    }
+  });
 
-
-  console.log(graph);
-
-  // Implement algorithm
-  return 0;
+  return shortestPath.reduce((acc, edge) => acc + edge.weight, 0);
 }
 
-function test() {
-  const result = checkShortestPath([
-    [0, 0],
-    [0, 2],
-    [1, 1],
-    [3, 0],
-    [3, 2],
-  ]);
+// function test() {
+//   const result = checkShortestPath([
+//     [0, 0],
+//     [0, 2],
+//     [1, 1],
+//     [3, 0],
+//     [3, 2],
+//   ]);
 
-  if (result === 7.064495102) {
-    process.stdout.write('Success');
-  } else {
-    process.stdout.write(`Error: ${result}`);
-  }
+//   if (result.toString().includes('7.064495102')) {
+//     process.stdout.write('Success');
+//   } else {
+//     process.stdout.write(`Error: ${result}`);
+//   }
 
-  process.exit();
-}
+//   process.exit();
+// }
 
-// readLines();
-test();
+readLines();
+// test();
 
 module.exports = checkShortestPath;
