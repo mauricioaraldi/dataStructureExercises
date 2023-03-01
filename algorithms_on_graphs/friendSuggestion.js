@@ -239,36 +239,18 @@ function BiDirectionalDijkstra(graph, verticesQt, start, end) {
     graph[reverseKey].reverseProcessed = true;
 
     if (graph[reverseKey].forwardProcessed && graph[key].reverseProcessed) {
-      if (dist[key] !== Infinity && reverseDist[key] !== Infinity) {
-        return dist[key] + reverseDist[key];
-      }
+      let bestDistance = Infinity;
+
+      dist.forEach((k, i) => {
+        const distance = dist[i] + reverseDist[i];
+
+        if (distance < bestDistance) {
+          bestDistance = distance;
+        }
+      });
+
+      return bestDistance === Infinity ? -1 : bestDistance;
     }
-
-    // if (reverseDist[key] !== Infinity) {
-    //   console.log('OPTIMAL PATH FOUND', dist, reverseDist);
-    //   console.log('CURRENT KEY', key);
-
-    //   for (let i = key + 1; i <= dist.length; i++) {
-    //     console.log('DIST', dist);
-
-    //     const distance = dist[i];
-    //     const biDirectionalDistance = dist[i - 1] + reverseDist[i + 1];
-
-    //     if (biDirectionalDistance < distance) {
-    //       dist[i] = biDirectionalDistance;
-    //     }
-
-    //     // if (distance !== Infinity || reverseDist[i] !== Infinity) {
-    //     //   continue;
-    //     // }
-
-    //     // if (distance === Infinity && reverseDist[i] === Infinity) {
-    //     //   continue;
-    //     // }
-    //   }
-
-    //   return dist;
-    // }
 
     Object.entries(graph[key].edges).forEach(([edge, weight]) => {
       const edgeDistance = dist[key] + weight;
@@ -305,8 +287,6 @@ function friendSuggestion(verticesQt, connections, queries) {
   const graph = buildGraph(verticesQt);
 
   createConnections(graph, connections);
-
-  console.log(graph);
 
   const r = queries.map(query => {
     const [start, end] = query;
@@ -448,7 +428,7 @@ function test(onlyTest) {
 }
 
 
-if (process?.argv?.includes('-t')) {
+if (process && process.argv && process.argv.includes('-t')) {
   const indexOfT = process.argv.indexOf('-t');
   const testToRun = process.argv[indexOfT + 1];
 
