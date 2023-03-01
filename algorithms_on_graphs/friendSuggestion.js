@@ -284,6 +284,10 @@ function resetGraph(graph) {
 }
 
 function friendSuggestion(verticesQt, connections, queries) {
+  if (!verticesQt) {
+    return -1;
+  }
+
   const graph = buildGraph(verticesQt);
 
   createConnections(graph, connections);
@@ -405,6 +409,70 @@ function test(onlyTest) {
         ],
       ),
       expected: [3],
+    },
+
+    {
+      id: 6,
+      run: () => friendSuggestion(
+        4,
+
+        [
+          [1, 2, 1],
+          [3, 4, 1],
+        ],
+
+        [
+          [1, 4],
+        ],
+      ),
+      expected: [-1],
+    },
+
+    {
+      id: 7,
+      run: () => friendSuggestion(
+        4,
+
+        [
+          [1, 2, 1],
+          [3, 4, 1],
+          [3, 2, 1],
+          [2, 1, 1],
+        ],
+
+        [
+          [1, 4],
+        ],
+      ),
+      expected: [-1],
+    },
+
+    {
+      id: 8,
+      run: () => friendSuggestion(
+        0,
+
+        [],
+
+        [
+          [1, 2],
+        ],
+      ),
+      expected: [-1],
+    },
+
+    {
+      id: 9,
+      run: () => friendSuggestion(
+        2,
+
+        [],
+
+        [
+          [1, 2],
+        ],
+      ),
+      expected: [-1],
     }
   ];
 
