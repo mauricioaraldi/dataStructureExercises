@@ -1,7 +1,7 @@
-// Input: Text ending in '$'
-// Example input: ACACACAC$
-// Output: Burrows Wheeler Transform of Text
-// Example output: CCCC$AAAA
+// Input: Transform ending in '$'
+// Example input: AGGGAA$
+// Output: Burrows Text that generated trasnform
+// Example output: GAGAGA$
 
 const readline = require('readline');
 const rl = readline.createInterface({
@@ -18,39 +18,28 @@ const readLines = () => {
   });
 };
 
-function bwt(text) {
+function bwtInverse(text) {
   const variations = [text];
-  const result = [];
 
-  for (let i = 1; i < text.length; i++) {
-    variations.push(`${text.slice(-i)}${text.slice(0, text.length - i)}`);
-  }
+  variations.unshift(text.split('').sort().join(''));
 
-  variations.sort();
+  console.log(variations)
 
-  variations.forEach(variation => result.push(variation[variation.length - 1]));
-
-  return result.join('');
+  return text;
 }
 
 function test(onlyTest) {
   let testCases = [
     {
       id: 1,
-      run: () => bwt('AA$'),
-      expected: 'AA$',
+      run: () => bwtInverse('AC$A'),
+      expected: 'ACA$',
     },
 
     {
       id: 2,
-      run: () => bwt('ACACACAC$'),
-      expected: 'CCCC$AAAA',
-    },
-
-    {
-      id: 3,
-      run: () => bwt('AGACATA$'),
-      expected: 'ATG$CAAA',
+      run: () => bwtInverse('AGGGAA$'),
+      expected: 'GAGAGA$',
     },
   ];
 
@@ -83,4 +72,4 @@ if (process && process.argv && process.argv.includes('-t')) {
   readLines();
 }
 
-module.exports = bwt;
+module.exports = bwtInverse;
