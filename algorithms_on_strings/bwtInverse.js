@@ -54,35 +54,21 @@ function bwtInverse(text) {
   let charRepetition = 1;
 
   while (true) {
-    console.log('Look for:', currentChar);
-
-    console.log('From', currentIndex);
-    console.log('In', variations[0]);
-
     variations[1].characters[currentIndex] = null;
 
     currentIndex = variations[0].repetitions[currentChar].byRepetition[charRepetition];
-
-    console.log('Found in', currentIndex);
 
     variations[0].characters[currentIndex] = null;
 
     originalText.push(currentChar);
 
-    console.log('Next char from', variations[1]);
-
-    console.log(123123, currentChar, currentIndex);
-
     currentChar = variations[1].characters[currentIndex];
-    charRepetition = variations[1].repetitions[currentChar].byIndex[currentIndex];
 
     if (currentChar === null) {
       return originalText.reverse().join('');
     }
 
-    console.log('GOT', currentChar);
-
-    console.log('-- - - -- - -');
+    charRepetition = variations[1].repetitions[currentChar].byIndex[currentIndex];
   }
 }
 
@@ -104,6 +90,18 @@ function test(onlyTest) {
       id: 3,
       run: () => bwtInverse('TTCCTAACG$A'),
       expected: 'TACATCACGT$',
+    },
+
+    {
+      id: 4,
+      run: () => bwtInverse('G$AAAAAAAAAAAAA'),
+      expected: 'AAAAAAAAAAAAAG$',
+    },
+
+    {
+      id: 5,
+      run: () => bwtInverse('CTTTTTTTCCCCCCCGGGGGGG$AAAAAAAAAAAAAA'),
+      expected: 'CATAGCATAGCATAGCATAGCATAGCATAGCATAGC$',
     }
   ];
 
