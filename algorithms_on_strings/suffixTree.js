@@ -70,8 +70,6 @@ function buildTrie(text) {
     let curNode = 0;
     let curIndex = i;
 
-    console.log('NOW FOR', text[curIndex]);
-
     while (true) {
       const curSymbol = text[curIndex];
       const edges = trie.getNode(curNode).edges;
@@ -79,7 +77,6 @@ function buildTrie(text) {
 
       if (!nextNode) {
         nextNode = trie.add({}, i);
-        console.log('ADD', curNode, nextNode, curIndex, text.length - curIndex);
         trie.connect(curNode, nextNode, [curIndex, text.length - curIndex]);
         break;
       }
@@ -87,11 +84,8 @@ function buildTrie(text) {
       let [startPos, length] = edges[nextNode];
 
       if (length > 1) {
-        console.log('Starting point', trie.getNode(nextNode), length);
         for (let j = 1; j < length; j++) {
-          console.log(text[startPos + j], text[curIndex + j]);
           if (text[startPos + j] !== text[curIndex + j]) {
-            console.log('-->', curNode, nextNode, startPos, j, 'X', curIndex);
             trie.connect(curNode, nextNode, [startPos, j]);
 
             curIndex += j;
@@ -100,17 +94,12 @@ function buildTrie(text) {
 
             const prevNodeStartPos = startPos + j;
 
-            console.log('ADD child', curNode, nextNode, prevNodeStartPos, text.length - prevNodeStartPos);
-
             trie.connect(curNode, nextNode, [prevNodeStartPos, text.length - prevNodeStartPos]);
 
             visualizeTrie(text, trie);
-            console.log(JSON.stringify(trie));
             break;
           }
         }
-
-        console.log('aaaaa', curIndex);
 
         curNode = nextNode;
         nextNode = trie.add({}, curIndex);
@@ -142,17 +131,12 @@ function suffixTrie(text) {
     }
   }
 
-  console.log('OUT', outputFormat);
-  console.log(visualizeTrie(text, trie));
-
   return outputFormat;
 }
 
 function visualizeTrie(text, trie) {
   for (let i = 0; i < trie.size; i++) {
     const node = trie.getNode(i);
-
-    console.log(`Node ${i}:${node.symbol}`);
 
     const edges = node.edges;
 

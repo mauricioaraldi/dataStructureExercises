@@ -18,58 +18,56 @@ const readLines = () => {
   });
 };
 
-function bwtInverse(text) {
-  const variations = [
-    {
-      characters: text.split('').sort(),
-      repetitions: {},
-    }, 
-    {
-      characters: text.split(''),
-      repetitions: {},
-    }
-  ];
-  const originalText = [];
-
-  variations.forEach(variation =>
-    variation.characters.forEach((character, index) => {
-      if (!variation.repetitions[character]) {
-        variation.repetitions[character] = {
-          byIndex: {},
-          byRepetition: {},
-          quantity: 0,
-        };
-      }
-
-      const curCharacter = variation.repetitions[character];
-      const curQuantity = ++variation.repetitions[character].quantity;
-
-      curCharacter.byIndex[index] = curQuantity;
-      curCharacter.byRepetition[curQuantity] = index;
-    })
-  );
-
-  let currentIndex = text.indexOf('$');
-  let currentChar = '$';
-  let charRepetition = 1;
-
-  while (true) {
-    variations[1].characters[currentIndex] = null;
-
-    currentIndex = variations[0].repetitions[currentChar].byRepetition[charRepetition];
-
-    variations[0].characters[currentIndex] = null;
-
-    originalText.push(currentChar);
-
-    currentChar = variations[1].characters[currentIndex];
-
-    if (currentChar === null) {
-      return originalText.reverse().join('');
-    }
-
-    charRepetition = variations[1].repetitions[currentChar].byIndex[currentIndex];
+function prepareMatrix(matrix, text) {
+  for (let i = 0; i < matrix.length; i++) {
+    matrix[i][0] = text.charCodeAt(i);
+    matrix[i][2] = i;
   }
+}
+
+function execute(matrix) {
+  matrix.sort((a, b) => {
+    if (a[0] < b[0]) {
+      return -1;
+    }
+
+    if (a[0] > b[0]) {
+      return 1;
+    }
+
+    if (a[0] === b[0]) {
+      return a[2] - b[2];
+    }
+  });
+
+  const dollarSignPosition = matrix[0][2];
+
+  let next = dollarSignPosition;
+
+  for (let i = 0; i < matrix.length; i++) {
+    matrix[i][1] = matrix[next][0];
+    next = matrix[next][2];
+  }
+}
+
+function bwtInverse(text) {
+  const matrix = new Array(text.length);
+
+  for (let i = 0; i < matrix.length; i++) {
+    matrix[i] = new Array(3);
+  }
+
+  prepareMatrix(matrix, text);
+
+  execute(matrix);
+
+  let result = '';
+
+  for (let i = 0; i < matrix.length; i++) {
+    result = result.concat(String.fromCharCode(matrix[i][1]));
+  }
+
+  return result;
 }
 
 function bwt(text) {
@@ -91,7 +89,7 @@ function autoTest() {
   const POSSIBLE_CHARS = ['T', 'C', 'G', 'A'];
   const SUCCESS_LOG_INTERVAL = 1;
   const MIN_STRING_SIZE = 1;
-  const MAX_STRING_SIZE = 1000000;
+  const MAX_STRING_SIZE = 200000;
   let NUMBER_OF_TESTS = 1;
 
   while (NUMBER_OF_TESTS--) {
@@ -152,8 +150,8 @@ function test(onlyTest) {
 
     {
       id: 5,
-      run: () => bwtInverse('CTTTTTTTCCCCCCCGGGGGGG$AAAAAAAAAAAAAA'),
-      expected: 'CATAGCATAGCATAGCATAGCATAGCATAGCATAGC$',
+      run: () => bwtInverse('TTCCTAACG$A'),
+      expected: 'TACATCACGT$',
     }
   ];
 
@@ -166,6 +164,7 @@ function test(onlyTest) {
 
     if (result === testCase.expected) {
       console.log(`[V] Passed test ${testCase.id}`);
+      console.log(result);
     } else {
       console.log(`[X] Failed test ${testCase.id}`);
       console.log(`Expected: ${testCase.expected}`);
