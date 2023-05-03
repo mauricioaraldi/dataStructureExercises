@@ -1,6 +1,6 @@
 // Input: Transform ending in '$'
 // Example input: AGGGAA$
-// Output: Burrows Text that generated trasnform
+// Output: Burrows Text that generated transform
 // Example output: GAGAGA$
 
 const readline = require('readline');
