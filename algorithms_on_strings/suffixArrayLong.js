@@ -3,6 +3,9 @@
 // Output: The list of starting positions of sorted suffixes separated by spaces
 // Example output: 3 2 1 0
 
+const ALPHABET = ['$', 'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J',
+  'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z'];
+
 const readline = require('readline');
 const rl = readline.createInterface({
   input: process.stdin,
@@ -13,55 +16,61 @@ const readLines = () => {
   process.stdin.setEncoding('utf8');
 
   rl.once('line', line => {
-    process.stdout.write(suffix(line).toString());
+    process.stdout.write(suffix(line.toUpperCase()).join(' '));
     process.exit();
   });
 };
 
 function sortCharacters(text) {
-  const count = {};
-  let order = 0;
+  const order = new Array(text.length);
+  const count = new Array(ALPHABET.length).fill(0);
 
-  for (const char of text) {
-    if (!count[char]) {
-      count[char] = {
-        repetition: 0,
-        order: order++,
-      };
-    }
-
-    count[char].repetition++;
+  for (let i = 0; i < text.length; i++) {
+    count[ALPHABET.indexOf(text[i])]++;
   };
 
-  return Object.keys(count).sort((a, b) => {
-    if (count[a].repetition > count[b].repetition) {
-      return 1;
-    }
+  for (let i = 1; i < ALPHABET.length; i++) {
+    count[i] += count[i - 1];
+  }
 
-    if (count[a].repetition < count[b].repetition) {
-      return -1;
-    }
+  let i = text.length;
+  while (i--) {
+    const alphabetCode = ALPHABET.indexOf(text[i]);
 
-    if (count[a].repetition === count[b].repetition) {
-      return count[a].order - count[b].order;
-    }
+    count[alphabetCode]--;
 
-    return 0;
-  });
+    order[count[alphabetCode]] = i;
+  }
+
+  return order;
 }
 
-function computeCharClasses(text, order) {}
+function computeCharClasses(text, order) {
+  const classes = new Array(text.length);
+
+  classes[order[0]] = 0;
+
+  for (let i = 1; i < text.length; i++) {
+    if (text[order[i]] !== text[order[i - 1]]) {
+      classes[order[i]] = classes[order[i - 1]] + 1;
+    } else {
+      classes[order[i]] = classes[order[i - 1]];
+    }
+  }
+
+  return classes;
+}
 
 function sortDoubled(text, cycleLength, order, classes) {
   const count = new Array(text.length).fill(0);
   const newOrder = new Array(text.length);
 
   for (let i = 0; i < text.length; i++) {
-    count[classes[i]] = count[classes[i]] + 1;
+    count[classes[i]]++;
   }
 
   for (let i = 1; i < text.length; i++) {
-    count[classes[i]] = count[classes[i]] + 1;
+    count[i] += count[i - 1];
   }
 
   for (let i = text.length - 1; i >= 0; i--) {
@@ -97,10 +106,9 @@ function updateClasses(newOrder, classes, cycleLength) {
 }
 
 function buildSuffixArray(text) {
-  const order = sortCharacters(text);
-  const classes = computeCharClasses(text, order);
-
-  const cycleLength = 1;
+  let order = sortCharacters(text);
+  let classes = computeCharClasses(text, order);
+  let cycleLength = 1;
 
   while (cycleLength < text.length) {
     order = sortDoubled(text, cycleLength, order, classes);
@@ -112,7 +120,7 @@ function buildSuffixArray(text) {
 }
 
 function suffix(text) {
-  return '';
+  return buildSuffixArray(text);
 }
 
 function test(onlyTest) {
@@ -120,25 +128,25 @@ function test(onlyTest) {
     {
       id: 1,
       run: () => suffix('AAA$'),
-      expected: '3 2 1 0',
+      expected: [3, 2, 1, 0],
     },
 
     {
       id: 2,
       run: () => suffix('GAC$'),
-      expected: '3 1 2 0',
+      expected: [3, 1, 2, 0],
     },
 
     {
       id: 3,
       run: () => suffix('GAGAGAGA$'),
-      expected: '8 7 5 3 1 6 4 2 0',
+      expected: [8, 7, 5, 3, 1, 6, 4, 2, 0],
     },
 
     {
       id: 4,
       run: () => suffix('AACGATAGCGGTAGA$'),
-      expected: '15 14 0 1 12 6 4 2 8 13 3 7 9 10 11 5',
+      expected: [15, 14, 0, 1, 12, 6, 4, 2, 8, 13, 3, 7, 9, 10, 11, 5],
     },
   ];
 
@@ -149,7 +157,7 @@ function test(onlyTest) {
   testCases.forEach(testCase => {
     const result = testCase.run();
 
-    if (result === testCase.expected) {
+    if (result.toString() === testCase.expected.toString()) {
       console.log(`[V] Passed test ${testCase.id}`);
     } else {
       console.log(`[X] Failed test ${testCase.id}`);

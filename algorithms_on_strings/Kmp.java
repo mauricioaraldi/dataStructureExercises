@@ -23,8 +23,7 @@ public class Kmp {
 
     for (int i = pattern.length() + 1; i < fullString.length(); i++) {
       if (prefix[i] == pattern.length()) {
-        result.append(" ");
-        result.append(i - (2 * pattern.length()));
+        result.append(" " + (i - (2 * pattern.length())));
       }
     }
 
