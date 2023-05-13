@@ -55,8 +55,7 @@ function buildGraph(verticesQt) {
   for (let i = 1; i <= verticesQt; i++) {
     graph[i] = {
       edges: {},
-      visited: false,
-      distance: null,
+      exhausted: false,
     };
   }
 
@@ -64,9 +63,79 @@ function buildGraph(verticesQt) {
 }
 
 function createConnections(graph, connections) {
-  connections.forEach(([origin, destiny, weight]) => {
-    graph[origin].edges[destiny] = weight;
+  connections.forEach(([origin, destiny, capacity]) => {
+    graph[origin].edges[destiny] = {
+      residual: capacity,
+      exhausted: false,
+      capacity,
+    };
   });
+}
+
+function explore(graph, node, sinkId, previousFlow) {
+  if (node === sinkId) {
+    return previousFlow;
+  }
+
+  const edges = graph[node].edges;
+
+  for (let key in edges) {
+    const destiny = parseInt(key, 10);
+
+    console.log('edge!', node, destiny, 'r', edges[destiny].residual);
+    if (edges[destiny].exhausted) {
+      continue;
+    }
+
+    const currentFlow = previousFlow ? Math.min(edges[destiny].residual, previousFlow) : edges[destiny].residual;
+
+    console.log('current', currentFlow);
+
+    if (destiny === sinkId) {
+      console.log('ENDS DESTINY');
+      edges[destiny].residual -= currentFlow;
+
+      if (edges[destiny].residual === 0) {
+        edges[destiny].exhausted = true;
+      }
+
+      console.log('CCCC', currentFlow);
+
+      return currentFlow;
+    }
+
+    const exploreFlow = explore(graph, destiny, sinkId, currentFlow);
+
+    console.log('explore', exploreFlow, 'return', node, destiny);
+
+    if (exploreFlow) {
+      edges[destiny].residual -= exploreFlow;
+
+      if (edges[destiny].residual === 0) {
+        edges[destiny].exhausted = true;
+      }
+
+      return exploreFlow;
+    } else {
+      edges[destiny].exhausted = true;
+    }
+  }
+
+  return 0;
+}
+
+function checkSourcesResiduals(graph) {
+  return Object.keys(graph[1].edges).reduce((acc, destiny) =>
+   acc += graph[1].edges[destiny].capacity - graph[1].edges[destiny].residual
+  , 0);
+}
+
+function print(graph) {
+  Object.keys(graph).forEach(nodeKey =>
+    Object.keys(graph[nodeKey].edges).forEach(destiny => 
+      console.log(nodeKey, destiny, graph[nodeKey].edges[destiny])
+    )
+  );
 }
 
 function evacuation(verticesQt, connections) {
@@ -74,9 +143,24 @@ function evacuation(verticesQt, connections) {
 
   createConnections(graph, connections);
 
-  console.log(graph);
+  let continueExploring = true;
+  while (continueExploring) {
+    explore(graph, 1, verticesQt);
 
-  return 0;
+    checkSourcesResiduals(graph);
+
+    continueExploring = false;
+
+    for (let key in graph[1].edges) {
+      if (!graph[1].edges[key].exhausted) {
+        continueExploring = true;
+      }
+    }
+  }
+
+  print(graph);
+
+  return checkSourcesResiduals(graph)
 }
 
 function test(onlyTest) {
