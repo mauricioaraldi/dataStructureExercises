@@ -77,9 +77,11 @@ function explore(graph, node, sinkId, previousFlow) {
     return previousFlow;
   }
 
-  const edges = graph[node].edges;
+  const { edges } = graph[node];
+  const edgesOrderByKey = Object.keys(edges).sort((a, b) => edges[b].residual - edges[a].residual);
 
-  for (let key in edges) {
+  for (let i = 0; i < edgesOrderByKey.length; i++) {
+    const key = edgesOrderByKey[i];
     const destiny = parseInt(key, 10);
 
     console.log('edge!', node, destiny, 'r', edges[destiny].residual);
