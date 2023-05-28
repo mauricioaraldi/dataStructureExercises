@@ -38,7 +38,7 @@ const readLines = () => {
       connections.push(link);
 
       if (!--n) {
-        rl.off('line', readConnection);
+        rl.removeListener('line', readConnection);
 
         process.stdout.write(evacuation(vertices, connections).toString());
         process.exit();
@@ -63,10 +63,12 @@ function buildGraph(verticesQt) {
 }
 
 function createConnections(graph, connections) {
-  connections.forEach(([origin, destiny, capacity]) => {
-    graph[origin].edges[destiny] = {
+  connections.forEach(([origin, destiny, capacity], i) => {
+    graph[origin].edges[i] = {
+      destiny,
       residual: capacity,
       exhausted: false,
+      visited: false,
       capacity,
     };
   });
@@ -79,63 +81,81 @@ function explore(graph, node, sinkId, previousFlow) {
 
   const { edges } = graph[node];
   const edgesOrderByKey = Object.keys(edges).sort((a, b) => edges[b].residual - edges[a].residual);
+  const keyToExplore = edgesOrderByKey.find(key => !edges[key].exhausted);
 
-  for (let i = 0; i < edgesOrderByKey.length; i++) {
-    const key = edgesOrderByKey[i];
-    const destiny = parseInt(key, 10);
-
-    console.log('edge!', node, destiny, 'r', edges[destiny].residual);
-    if (edges[destiny].exhausted) {
-      continue;
-    }
-
-    const currentFlow = previousFlow ? Math.min(edges[destiny].residual, previousFlow) : edges[destiny].residual;
-
-    console.log('current', currentFlow);
-
-    if (destiny === sinkId) {
-      console.log('ENDS DESTINY');
-      edges[destiny].residual -= currentFlow;
-
-      if (edges[destiny].residual === 0) {
-        edges[destiny].exhausted = true;
-      }
-
-      console.log('CCCC', currentFlow);
-
-      return currentFlow;
-    }
-
-    const exploreFlow = explore(graph, destiny, sinkId, currentFlow);
-
-    console.log('explore', exploreFlow, 'return', node, destiny);
-
-    if (exploreFlow) {
-      edges[destiny].residual -= exploreFlow;
-
-      if (edges[destiny].residual === 0) {
-        edges[destiny].exhausted = true;
-      }
-
-      return exploreFlow;
-    } else {
-      edges[destiny].exhausted = true;
-    }
+  if (!keyToExplore) {
+    return -1;
   }
 
-  return 0;
+  const edge = edges[keyToExplore];
+  const destiny = parseInt(edge.destiny, 10);
+
+  if (node === destiny || edge.visited) {
+    edge.exhausted = true;
+    return -1;
+  }
+
+  edge.visited = true;
+
+  const currentFlow = previousFlow ? Math.min(edge.residual, previousFlow) : edge.residual;
+
+  if (destiny === sinkId) {
+    edge.residual -= currentFlow;
+
+    if (edge.residual === 0) {
+      edge.exhausted = true;
+    }
+
+    return currentFlow;
+  }
+
+  const destinyHasUnvisitedEdges = Object.keys(graph[destiny].edges).some(key => 
+      !graph[destiny].edges[key].visited);
+
+  if (!destinyHasUnvisitedEdges) {
+    edge.exhausted = true;
+    return 0;
+  }
+
+  const exploreFlow = explore(graph, destiny, sinkId, currentFlow);
+
+  if (exploreFlow > 0) {
+    edge.residual -= exploreFlow;
+
+    if (edge.residual === 0) {
+      edge.exhausted = true;
+    }
+
+    return exploreFlow;
+  } else {
+    if (exploreFlow === 0) {
+      return 0;
+    }
+
+    edge.exhausted = true;
+  }
+
+  return -1;
 }
 
 function checkSourcesResiduals(graph) {
   return Object.keys(graph[1].edges).reduce((acc, destiny) =>
-   acc += graph[1].edges[destiny].capacity - graph[1].edges[destiny].residual
+    acc += graph[1].edges[destiny].capacity - graph[1].edges[destiny].residual
   , 0);
 }
 
 function print(graph) {
   Object.keys(graph).forEach(nodeKey =>
-    Object.keys(graph[nodeKey].edges).forEach(destiny => 
-      console.log(nodeKey, destiny, graph[nodeKey].edges[destiny])
+    Object.keys(graph[nodeKey].edges).forEach(edgeKey => 
+      console.log(nodeKey, graph[nodeKey].edges[edgeKey].destiny, graph[nodeKey].edges[edgeKey])
+    )
+  );
+}
+
+function resetVisitedEdges(graph) {
+  Object.keys(graph).forEach(nodeKey =>
+    Object.keys(graph[nodeKey].edges).forEach(edgeKey =>
+      graph[nodeKey].edges[edgeKey].visited = graph[nodeKey].edges[edgeKey].exhausted
     )
   );
 }
@@ -158,9 +178,9 @@ function evacuation(verticesQt, connections) {
         continueExploring = true;
       }
     }
-  }
 
-  print(graph);
+    resetVisitedEdges(graph);
+  }
 
   return checkSourcesResiduals(graph)
 }
@@ -190,13 +210,55 @@ function test(onlyTest) {
         4,
         [
           [1, 2, 10000],
-          [1, 2, 10000],
+          [1, 3, 10000],
           [2, 3, 1],
           [3, 4, 10000],
           [2, 4, 10000],
         ]
       ),
       expected: 20000,
+    },
+
+    {
+      id: 3,
+      run: () => evacuation(
+        2,
+        [
+          [1, 1, 10000],
+          [1, 2, 1],
+          [1, 2, 4],
+          [1, 2, 100],
+          [2, 1, 900],
+        ]
+      ),
+      expected: 105,
+    },
+
+    {
+      id: 4,
+      run: () => evacuation(
+        4,
+        [
+          [1, 2, 2],
+          [2, 3, 2],
+          [3, 1, 2],
+          [3, 4, 1],
+        ]
+      ),
+      expected: 1,
+    },
+
+    {
+      id: 5,
+      run: () => evacuation(
+        4,
+        [
+          [1, 2, 2],
+          [2, 3, 2],
+          [4, 5, 1],
+        ]
+      ),
+      expected: 0,
     },
   ];
 
