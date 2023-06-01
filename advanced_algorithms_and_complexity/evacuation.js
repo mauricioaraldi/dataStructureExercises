@@ -18,7 +18,7 @@ const rl = readline.createInterface({
   terminal: false
 });
 
-const readLines = () => {
+const readLines = (asXML) => {
   process.stdin.setEncoding('utf8');
 
   const connections = [];
@@ -40,7 +40,12 @@ const readLines = () => {
       if (!--n) {
         rl.removeListener('line', readConnection);
 
-        process.stdout.write(evacuation(vertices, connections).toString());
+        if (asXML) {
+          generateGraphXML(vertices, connections);
+        } else {
+          process.stdout.write(evacuation(vertices, connections).toString());
+        }
+
         process.exit();
       }
     };
@@ -185,6 +190,52 @@ function evacuation(verticesQt, connections) {
   return checkSourcesResiduals(graph)
 }
 
+function generateGraphXML(verticesQt, connections) {
+  const NODE_SIZE = 30;
+  const BORDER = 10;
+  const VERTICAL_SPACE = 10;
+  const NODES_PER_COLUMN = 20;
+
+  let uidGraph = 0;
+  let uidEdge = 10000;
+
+  const nodes = [];
+  const edges = [];
+
+  for (let i = 0; i <= verticesQt; i++) {
+    nodes.push(`<node
+      positionX="${(i % NODES_PER_COLUMN) + NODE_SIZE + BORDER}"
+      positionY="${((i % NODES_PER_COLUMN) * NODE_SIZE) + NODE_SIZE + BORDER + VERTICAL_SPACE}"
+      id="${uidGraph++}"
+      mainText="${i+1}"
+      upText=""
+      size="${NODE_SIZE}"
+    ></node>`);
+  }
+
+  connections.forEach(([origin, destiny, capacity]) => {
+    edges.push(`<edge
+      source="${origin}"
+      target="${destiny}"
+      isDirect="true"
+      weight="${capacity}"
+      useWeight="true"
+      id="${uidEdge++}"
+      text=""
+      upText=""
+      arrayStyleStart=""
+      arrayStyleFinish=""
+      model_width="4"
+      model_type="0"
+      model_curveValue="0.1"
+    ></edge>`);
+  });
+
+  process.stdout.write(`<graph id="Graph" uidGraph="${uidGraph}" uidEdge="${uidEdge}">`);
+  process.stdout.write(nodes.join('').replace(/\n     /g, '').replace(/\n    /g, ''));
+  process.stdout.write(edges.join('').replace(/\n     /g, '').replace(/\n    /g, ''));
+}
+
 function test(onlyTest) {
   let testCases = [
     {
@@ -281,14 +332,17 @@ function test(onlyTest) {
   process.exit();
 }
 
+if (process && process.argv) {
+  if (process.argv.includes('-xml')) {
+    return readLines(true);
+  } else if (process.argv.includes('-t')) {
+    const indexOfT = process.argv.indexOf('-t');
+    const testToRun = process.argv[indexOfT + 1];
 
-if (process && process.argv && process.argv.includes('-t')) {
-  const indexOfT = process.argv.indexOf('-t');
-  const testToRun = process.argv[indexOfT + 1];
-
-  test(testToRun);
-} else {
-  readLines();
+    return test(testToRun);
+  }
 }
+
+readLines();
 
 module.exports = evacuation;
