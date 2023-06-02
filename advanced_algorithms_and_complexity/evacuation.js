@@ -54,6 +54,52 @@ const readLines = (asXML) => {
   });
 };
 
+class Queue {
+  constructor() {
+    this.elements = {};
+    this.head = 0;
+    this.tail = 0;
+  }
+
+  enqueue(element) {
+    this.elements[this.tail++] = element;
+  }
+
+  dequeue() {
+    const item = this.elements[this.head];
+
+    delete this.elements[this.head++];
+
+    return item;
+  }
+
+  peek() {
+    return this.elements[this.head];
+  }
+
+  get length() {
+    return this.tail - this.head;
+  }
+
+  get isEmpty() {
+    return this.length === 0;
+  }
+}
+
+function buildGraph(verticesQt) {
+  const graph = {};
+
+  for (let i = 1; i <= verticesQt; i++) {
+    graph[i] = {
+      edges: new Set(),
+      visited: false,
+      distance: null,
+    };
+  }
+
+  return graph;
+}
+
 function buildGraph(verticesQt) {
   const graph = {};
 
@@ -79,13 +125,76 @@ function createConnections(graph, connections) {
   });
 }
 
+function bfs(graph, start, end) {
+  if (!graph[start] || !graph[end]) {
+    return -1;
+  }
+
+  graph[start].distance = 0;
+
+  const shortestPathTree = [];
+  const queue = new Queue();
+
+  queue.enqueue(start);
+
+  while (queue.length) {
+    const nodeKey = queue.dequeue();
+    const node = graph[nodeKey];
+
+    node.visited = true;
+
+    if (!shortestPathTree[node.distance]) {
+      shortestPathTree[node.distance] = [];
+    }
+
+    shortestPathTree[node.distance].push(nodeKey);
+
+    Object.keys(node.edges).forEach(edgeKey => {
+      const edge = node.edges[edgeKey];
+
+      if (edge.exhausted || graph[edge.destiny].distance) {
+        return;
+      }
+
+      graph[edge.destiny].distance = node.distance + 1;
+      queue.enqueue(edge.destiny);
+    });
+
+    if (graph[end].distance) {
+      return graph[end].distance;
+    }
+  }
+
+  return -1;
+}
+
 function explore(graph, node, sinkId, previousFlow) {
+  console.log('explore', node);
   if (node === sinkId) {
     return previousFlow;
   }
 
   const { edges } = graph[node];
-  const edgesOrderByKey = Object.keys(edges).sort((a, b) => edges[b].residual - edges[a].residual);
+  const edgesOrderByKey = Object.keys(edges).sort(
+    (a, b) => {
+      const aDistance = graph[node].distance + graph[edges[a].destiny].distance;
+      const bDistance = graph[node].distance + graph[edges[b].destiny].distance;
+
+      console.log(edges[a].destiny, aDistance, edges[b].destiny, bDistance);
+
+      if (aDistance < bDistance) {
+        return -1;
+      }
+
+      if (aDistance > bDistance) {
+        return 1;
+      }
+
+      if (aDistance === bDistance) {
+        return a - b;
+      }
+    }
+  );
   const keyToExplore = edgesOrderByKey.find(key => !edges[key].exhausted);
 
   if (!keyToExplore) {
@@ -157,18 +266,22 @@ function print(graph) {
   );
 }
 
-function resetVisitedEdges(graph) {
-  Object.keys(graph).forEach(nodeKey =>
+function resetVisitedGraph(graph) {
+  Object.keys(graph).forEach(nodeKey => {
+    graph[nodeKey].visited = false;
+
     Object.keys(graph[nodeKey].edges).forEach(edgeKey =>
       graph[nodeKey].edges[edgeKey].visited = graph[nodeKey].edges[edgeKey].exhausted
-    )
-  );
+    );
+  });
 }
 
 function evacuation(verticesQt, connections) {
   const graph = buildGraph(verticesQt);
 
   createConnections(graph, connections);
+
+  bfs(graph, 1, verticesQt);
 
   let continueExploring = true;
   while (continueExploring) {
@@ -184,7 +297,7 @@ function evacuation(verticesQt, connections) {
       }
     }
 
-    resetVisitedEdges(graph);
+    resetVisitedGraph(graph);
   }
 
   return checkSourcesResiduals(graph)
@@ -192,9 +305,8 @@ function evacuation(verticesQt, connections) {
 
 function generateGraphXML(verticesQt, connections) {
   const NODE_SIZE = 30;
-  const BORDER = 10;
-  const VERTICAL_SPACE = 10;
-  const NODES_PER_COLUMN = 20;
+  const BORDER = 150;
+  const NODES_PER_COLUMN = 9;
 
   let uidGraph = 0;
   let uidEdge = 10000;
@@ -202,10 +314,13 @@ function generateGraphXML(verticesQt, connections) {
   const nodes = [];
   const edges = [];
 
-  for (let i = 0; i <= verticesQt; i++) {
+  for (let i = 0; i < verticesQt; i++) {
+    const column = parseInt(i / NODES_PER_COLUMN, 10);
+    const row = i % NODES_PER_COLUMN;
+
     nodes.push(`<node
-      positionX="${(i % NODES_PER_COLUMN) + NODE_SIZE + BORDER}"
-      positionY="${((i % NODES_PER_COLUMN) * NODE_SIZE) + NODE_SIZE + BORDER + VERTICAL_SPACE}"
+      positionX="${(column * NODE_SIZE) + NODE_SIZE + (column * BORDER)}"
+      positionY="${(row * NODE_SIZE) + NODE_SIZE + (row * BORDER)}"
       id="${uidGraph++}"
       mainText="${i+1}"
       upText=""
@@ -215,8 +330,8 @@ function generateGraphXML(verticesQt, connections) {
 
   connections.forEach(([origin, destiny, capacity]) => {
     edges.push(`<edge
-      source="${origin}"
-      target="${destiny}"
+      source="${origin - 1}"
+      target="${destiny - 1}"
       isDirect="true"
       weight="${capacity}"
       useWeight="true"
@@ -231,9 +346,11 @@ function generateGraphXML(verticesQt, connections) {
     ></edge>`);
   });
 
-  process.stdout.write(`<graph id="Graph" uidGraph="${uidGraph}" uidEdge="${uidEdge}">`);
+  process.stdout.write(`<?xml version="1.0" encoding="UTF-8"?><graphml>`);
+  process.stdout.write(`<graph id="Graph" uidGraph="${uidGraph - 1}" uidEdge="${uidEdge - 1}">`);
   process.stdout.write(nodes.join('').replace(/\n     /g, '').replace(/\n    /g, ''));
   process.stdout.write(edges.join('').replace(/\n     /g, '').replace(/\n    /g, ''));
+  process.stdout.write(`</graph></graphml>`);
 }
 
 function test(onlyTest) {
@@ -263,8 +380,8 @@ function test(onlyTest) {
           [1, 2, 10000],
           [1, 3, 10000],
           [2, 3, 1],
-          [3, 4, 10000],
           [2, 4, 10000],
+          [3, 4, 10000],
         ]
       ),
       expected: 20000,
