@@ -107,6 +107,7 @@ function buildGraph(verticesQt) {
     graph[i] = {
       edges: {},
       exhausted: false,
+      reverseEdges: {},
     };
   }
 
@@ -117,25 +118,28 @@ function createConnections(graph, connections) {
   connections.forEach(([origin, destiny, capacity], i) => {
     graph[origin].edges[i] = {
       destiny,
+      origin,
       residual: capacity,
       exhausted: false,
       visited: false,
       capacity,
     };
+
+    graph[destiny].reverseEdges[i] = graph[origin].edges[i];
   });
 }
 
-function bfs(graph, start, end) {
+function reverseBfs(graph, start, end) {
   if (!graph[start] || !graph[end]) {
     return -1;
   }
 
-  graph[start].distance = 0;
+  graph[end].distance = 0;
 
   const shortestPathTree = [];
   const queue = new Queue();
 
-  queue.enqueue(start);
+  queue.enqueue(end);
 
   while (queue.length) {
     const nodeKey = queue.dequeue();
@@ -143,110 +147,20 @@ function bfs(graph, start, end) {
 
     node.visited = true;
 
-    if (!shortestPathTree[node.distance]) {
-      shortestPathTree[node.distance] = [];
-    }
+    Object.keys(node.reverseEdges).forEach(edgeKey => {
+      const edge = node.reverseEdges[edgeKey];
 
-    shortestPathTree[node.distance].push(nodeKey);
-
-    Object.keys(node.edges).forEach(edgeKey => {
-      const edge = node.edges[edgeKey];
-
-      if (edge.exhausted || graph[edge.destiny].distance) {
+      if (edge.exhausted || graph[edge.origin].distance) {
         return;
       }
 
-      graph[edge.destiny].distance = node.distance + 1;
-      queue.enqueue(edge.destiny);
+      graph[edge.origin].distance = node.distance + 1;
+      queue.enqueue(edge.origin);
     });
 
-    if (graph[end].distance) {
-      return graph[end].distance;
+    if (graph[start].distance) {
+      return graph[start].distance;
     }
-  }
-
-  return -1;
-}
-
-function explore(graph, node, sinkId, previousFlow) {
-  console.log('explore', node);
-  if (node === sinkId) {
-    return previousFlow;
-  }
-
-  const { edges } = graph[node];
-  const edgesOrderByKey = Object.keys(edges).sort(
-    (a, b) => {
-      const aDistance = graph[node].distance + graph[edges[a].destiny].distance;
-      const bDistance = graph[node].distance + graph[edges[b].destiny].distance;
-
-      console.log(edges[a].destiny, aDistance, edges[b].destiny, bDistance);
-
-      if (aDistance < bDistance) {
-        return -1;
-      }
-
-      if (aDistance > bDistance) {
-        return 1;
-      }
-
-      if (aDistance === bDistance) {
-        return a - b;
-      }
-    }
-  );
-  const keyToExplore = edgesOrderByKey.find(key => !edges[key].exhausted);
-
-  if (!keyToExplore) {
-    return -1;
-  }
-
-  const edge = edges[keyToExplore];
-  const destiny = parseInt(edge.destiny, 10);
-
-  if (node === destiny || edge.visited) {
-    edge.exhausted = true;
-    return -1;
-  }
-
-  edge.visited = true;
-
-  const currentFlow = previousFlow ? Math.min(edge.residual, previousFlow) : edge.residual;
-
-  if (destiny === sinkId) {
-    edge.residual -= currentFlow;
-
-    if (edge.residual === 0) {
-      edge.exhausted = true;
-    }
-
-    return currentFlow;
-  }
-
-  const destinyHasUnvisitedEdges = Object.keys(graph[destiny].edges).some(key => 
-      !graph[destiny].edges[key].visited);
-
-  if (!destinyHasUnvisitedEdges) {
-    edge.exhausted = true;
-    return 0;
-  }
-
-  const exploreFlow = explore(graph, destiny, sinkId, currentFlow);
-
-  if (exploreFlow > 0) {
-    edge.residual -= exploreFlow;
-
-    if (edge.residual === 0) {
-      edge.exhausted = true;
-    }
-
-    return exploreFlow;
-  } else {
-    if (exploreFlow === 0) {
-      return 0;
-    }
-
-    edge.exhausted = true;
   }
 
   return -1;
@@ -276,81 +190,82 @@ function resetVisitedGraph(graph) {
   });
 }
 
+function findShortestPath(graph, sinkId) {
+  const path = [];
+  let maxFlow = undefined;
+  let currentNode = 1;
+  let lastCurrentNode = undefined;
+  let addEdge = undefined;
+
+  while (currentNode !== sinkId) {
+    console.log('cur', currentNode);
+
+    if (currentNode === lastCurrentNode) {
+      break;
+    }
+
+    const { edges } = graph[currentNode];
+
+    console.log('edges', edges);
+
+    graph[currentNode].visited = true;
+
+    lastCurrentNode = currentNode;
+
+    currentNode = Object.keys(edges).reduce((acc, edgeKey) => {
+      console.log('LOOP EDGE KEY', edgeKey);
+      const edge = edges[edgeKey];
+
+      if (edge.exhausted || graph[edge.destiny].visited) {
+        return acc;
+      }
+
+      console.log('LOOP', acc, edge.destiny);
+
+      if (acc === undefined || graph[edge.destiny].distance < graph[acc].distance) {
+        addEdge = edge;
+        return edge.destiny;
+      }
+    }, undefined);
+
+    console.log('current Node', currentNode);
+
+    console.log('add', addEdge);
+
+    if (addEdge) {
+      path.push(addEdge);
+
+      if (maxFlow === undefined) {
+        maxFlow = addEdge.residual;
+      } else {
+        maxFlow = Math.min(maxFlow, addEdge.residual);
+      }
+    }
+
+    addEdge = undefined
+  }
+
+  return {path, maxFlow};
+}
+
 function evacuation(verticesQt, connections) {
   const graph = buildGraph(verticesQt);
 
   createConnections(graph, connections);
 
-  bfs(graph, 1, verticesQt);
+  reverseBfs(graph, 1, verticesQt);
 
-  let continueExploring = true;
-  while (continueExploring) {
-    explore(graph, 1, verticesQt);
+  resetVisitedGraph(graph);
 
-    checkSourcesResiduals(graph);
+  let shortestPath = findShortestPath(graph, verticesQt);
 
-    continueExploring = false;
-
-    for (let key in graph[1].edges) {
-      if (!graph[1].edges[key].exhausted) {
-        continueExploring = true;
-      }
-    }
-
+  while (shortestPath.maxFlow > 0) {
+    shortestPath.path.forEach(edge => edge.residual-= shortestPath.maxFlow);
+    shortestPath = findShortestPath(graph, verticesQt);
     resetVisitedGraph(graph);
   }
 
   return checkSourcesResiduals(graph)
-}
-
-function generateGraphXML(verticesQt, connections) {
-  const NODE_SIZE = 30;
-  const BORDER = 150;
-  const NODES_PER_COLUMN = 9;
-
-  let uidGraph = 0;
-  let uidEdge = 10000;
-
-  const nodes = [];
-  const edges = [];
-
-  for (let i = 0; i < verticesQt; i++) {
-    const column = parseInt(i / NODES_PER_COLUMN, 10);
-    const row = i % NODES_PER_COLUMN;
-
-    nodes.push(`<node
-      positionX="${(column * NODE_SIZE) + NODE_SIZE + (column * BORDER)}"
-      positionY="${(row * NODE_SIZE) + NODE_SIZE + (row * BORDER)}"
-      id="${uidGraph++}"
-      mainText="${i+1}"
-      upText=""
-      size="${NODE_SIZE}"
-    ></node>`);
-  }
-
-  connections.forEach(([origin, destiny, capacity]) => {
-    edges.push(`<edge
-      source="${origin - 1}"
-      target="${destiny - 1}"
-      isDirect="true"
-      weight="${capacity}"
-      useWeight="true"
-      id="${uidEdge++}"
-      text=""
-      upText=""
-      arrayStyleStart=""
-      arrayStyleFinish=""
-      model_width="4"
-      model_type="0"
-      model_curveValue="0.1"
-    ></edge>`);
-  });
-
-  process.stdout.write(`<?xml version="1.0" encoding="UTF-8"?><graphml>`);
-  process.stdout.write(`<graph id="Graph" uidGraph="${uidGraph - 1}" uidEdge="${uidEdge - 1}">`);
-  process.stdout.write(nodes.join('').replace(/\n     /g, '').replace(/\n    /g, ''));
-  process.stdout.write(edges.join('').replace(/\n     /g, '').replace(/\n    /g, ''));
-  process.stdout.write(`</graph></graphml>`);
 }
 
 function test(onlyTest) {
