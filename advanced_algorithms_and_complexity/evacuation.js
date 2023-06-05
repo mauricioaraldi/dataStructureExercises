@@ -197,7 +197,7 @@ function findShortestPath(graph, sinkId) {
   let lastCurrentNode = undefined;
   let addEdge = undefined;
 
-  while (currentNode !== sinkId) {
+  while (currentNode && currentNode !== sinkId) {
     console.log('cur', currentNode);
 
     if (currentNode === lastCurrentNode) {
@@ -216,19 +216,34 @@ function findShortestPath(graph, sinkId) {
       console.log('LOOP EDGE KEY', edgeKey);
       const edge = edges[edgeKey];
 
+      console.log(1111111, edge.exhausted, graph[edge.destiny].visited);
+
       if (edge.exhausted || graph[edge.destiny].visited) {
         return acc;
       }
 
       console.log('LOOP', acc, edge.destiny);
 
-      if (acc === undefined || graph[edge.destiny].distance < graph[acc].distance) {
+      if (acc === undefined) {
         addEdge = edge;
         return edge.destiny;
       }
+
+      const edgeDistance = graph[edge.destiny].distance;
+      const accDistance = graph[acc].distance;
+
+      if (
+        edgeDistance < accDistance
+        || ((edgeDistance === accDistance) && edge.destiny < acc)
+      ) {
+        addEdge = edge;
+        return edge.destiny;
+      }
+
+      return acc;
     }, undefined);
 
-    console.log('current Node', currentNode);
+    console.log('currentNode', currentNode);
 
     console.log('add', addEdge);
 
@@ -245,6 +260,8 @@ function findShortestPath(graph, sinkId) {
     addEdge = undefined
   }
 
+  console.log('return', {path, maxFlow});
+
   return {path, maxFlow};
 }
 
@@ -259,8 +276,19 @@ function evacuation(verticesQt, connections) {
 
   let shortestPath = findShortestPath(graph, verticesQt);
 
+  resetVisitedGraph(graph);
+
   while (shortestPath.maxFlow > 0) {
-    shortestPath.path.forEach(edge => edge.residual-= shortestPath.maxFlow);
+    shortestPath.path.forEach(edge => {
+      edge.residual-= shortestPath.maxFlow;
+
+      if (!edge.residual) {
+        edge.exhausted = true;
+      }
+    });
+
+    print(graph);
+
     shortestPath = findShortestPath(graph, verticesQt);
     resetVisitedGraph(graph);
   }
