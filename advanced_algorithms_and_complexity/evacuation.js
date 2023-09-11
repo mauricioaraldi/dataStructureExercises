@@ -91,20 +91,6 @@ function buildGraph(verticesQt) {
 
   for (let i = 1; i <= verticesQt; i++) {
     graph[i] = {
-      edges: new Set(),
-      visited: false,
-      distance: null,
-    };
-  }
-
-  return graph;
-}
-
-function buildGraph(verticesQt) {
-  const graph = {};
-
-  for (let i = 1; i <= verticesQt; i++) {
-    graph[i] = {
       edges: {},
       exhausted: false,
       reverseEdges: {},
@@ -182,11 +168,19 @@ function print(graph) {
 
 function resetVisitedGraph(graph) {
   Object.keys(graph).forEach(nodeKey => {
+    let areAllEdgesExhausted = true;
+
     graph[nodeKey].visited = false;
 
-    Object.keys(graph[nodeKey].edges).forEach(edgeKey =>
-      graph[nodeKey].edges[edgeKey].visited = graph[nodeKey].edges[edgeKey].exhausted
-    );
+    Object.keys(graph[nodeKey].edges).forEach(edgeKey => {
+      if (areAllEdgesExhausted && !graph[nodeKey].edges[edgeKey].exhausted) {
+        areAllEdgesExhausted = false;
+      }
+
+      graph[nodeKey].edges[edgeKey].visited = graph[nodeKey].edges[edgeKey].exhausted;
+    });
+
+    graph[nodeKey].exhausted = areAllEdgesExhausted;
   });
 }
 
@@ -219,6 +213,11 @@ function findShortestPath(graph, sinkId) {
       console.log(1111111, edge.exhausted, graph[edge.destiny].visited);
 
       if (edge.exhausted || graph[edge.destiny].visited) {
+        return acc;
+      }
+
+      if (graph[edge.destiny].exhausted) {
+        edge.exhausted = true;
         return acc;
       }
 
@@ -260,9 +259,20 @@ function findShortestPath(graph, sinkId) {
     addEdge = undefined
   }
 
-  console.log('return', {path, maxFlow});
+  if (path.length && path[path.length - 1].destiny !== sinkId) {
+    console.log('NEGATIVE path to return', { path, maxFlow });
+    path[path.length - 1].exhausted = true;
 
-  return {path, maxFlow};
+    console.log('NOW IS EXHAUSTED', path[path.length - 1]);
+
+    resetVisitedGraph(graph);
+
+    return findShortestPath(graph, sinkId);
+  }
+
+  console.log('POSITIVE path to return', { path, maxFlow });
+
+  return { path, maxFlow };
 }
 
 function evacuation(verticesQt, connections) {
@@ -362,7 +372,7 @@ function test(onlyTest) {
     {
       id: 5,
       run: () => evacuation(
-        4,
+        5,
         [
           [1, 2, 2],
           [2, 3, 2],
