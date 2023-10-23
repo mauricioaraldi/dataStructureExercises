@@ -18,7 +18,7 @@ const rl = readline.createInterface({
   terminal: false
 });
 
-const readLines = (asXML) => {
+const readLines = () => {
   process.stdin.setEncoding('utf8');
 
   const connections = [];
@@ -40,11 +40,7 @@ const readLines = (asXML) => {
       if (!--n) {
         rl.removeListener('line', readConnection);
 
-        if (asXML) {
-          generateGraphXML(vertices, connections);
-        } else {
-          process.stdout.write(evacuation(vertices, connections).toString());
-        }
+        process.stdout.write(evacuation(vertices, connections).toString());
 
         process.exit();
       }
@@ -54,269 +50,101 @@ const readLines = (asXML) => {
   });
 };
 
-class Queue {
+class FordFulkerson {
   constructor() {
-    this.elements = {};
-    this.head = 0;
-    this.tail = 0;
+    this.graph = new Map();
   }
 
-  enqueue(element) {
-    this.elements[this.tail++] = element;
+  addEdge(u, v, capacity) {
+    if (!this.graph.has(u)) {
+      this.graph.set(u, []);
+    }
+
+    if (!this.graph.has(v)) {
+      this.graph.set(v, []);
+    }
+
+    this.graph.get(u).push({ node: v, capacity, reverse: null });
+    this.graph.get(v).push({ node: u, capacity: 0, reverse: null });
+    this.graph.get(u)[this.graph.get(u).length - 1].reverse = this.graph.get(v)[this.graph.get(v).length - 1];
+    this.graph.get(v)[this.graph.get(v).length - 1].reverse = this.graph.get(u)[this.graph.get(u).length - 1];
   }
 
-  dequeue() {
-    const item = this.elements[this.head];
+  bfs(source, sink, parent) {
+    const visited = new Set();
+    const queue = [source];
 
-    delete this.elements[this.head++];
+    visited.add(source);
 
-    return item;
+    while (queue.length > 0) {
+      const u = queue.shift();
+
+      for (const edge of this.graph.get(u)) {
+        const v = edge.node;
+        const capacity = edge.capacity;
+
+        if (!visited.has(v) && capacity > 0) {
+          parent[v] = { node: u, edge: edge };
+          visited.add(v);
+          queue.push(v);
+
+          if (v === sink) {
+            return true;
+          }
+        }
+      }
+    }
+
+    return false;
   }
 
-  peek() {
-    return this.elements[this.head];
-  }
+  maxFlow(source, sink) {
+    const parent = {};
+    let maxFlow = 0;
 
-  get length() {
-    return this.tail - this.head;
-  }
+    while (this.bfs(source, sink, parent)) {
+      let pathFlow = Number.POSITIVE_INFINITY;
+      let currentNode = sink;
 
-  get isEmpty() {
-    return this.length === 0;
+      while (currentNode !== source) {
+        const { edge } = parent[currentNode];
+
+        pathFlow = Math.min(pathFlow, edge.capacity);
+        currentNode = parent[currentNode].node;
+      }
+
+      maxFlow += pathFlow;
+
+      currentNode = sink;
+
+      while (currentNode !== source) {
+        const { edge } = parent[currentNode];
+
+        edge.capacity -= pathFlow;
+        edge.reverse.capacity += pathFlow;
+
+        currentNode = parent[currentNode].node;
+      }
+    }
+
+    return maxFlow;
   }
 }
 
-function buildGraph(verticesQt) {
-  const graph = {};
+function buildGraph(connections) {
+  const fordFulkerson = new FordFulkerson();
 
-  for (let i = 1; i <= verticesQt; i++) {
-    graph[i] = {
-      edges: {},
-      exhausted: false,
-      reverseEdges: {},
-    };
-  }
-
-  return graph;
-}
-
-function createConnections(graph, connections) {
-  connections.forEach(([origin, destiny, capacity], i) => {
-    graph[origin].edges[i] = {
-      destiny,
-      origin,
-      residual: capacity,
-      exhausted: false,
-      visited: false,
-      capacity,
-    };
-
-    graph[destiny].reverseEdges[i] = graph[origin].edges[i];
+  connections.forEach(connection => {
+    fordFulkerson.addEdge(connection[0], connection[1], connection[2]);
   });
-}
 
-function reverseBfs(graph, start, end) {
-  if (!graph[start] || !graph[end]) {
-    return -1;
-  }
-
-  graph[end].distance = 0;
-
-  const shortestPathTree = [];
-  const queue = new Queue();
-
-  queue.enqueue(end);
-
-  while (queue.length) {
-    const nodeKey = queue.dequeue();
-    const node = graph[nodeKey];
-
-    node.visited = true;
-
-    Object.keys(node.reverseEdges).forEach(edgeKey => {
-      const edge = node.reverseEdges[edgeKey];
-
-      if (edge.exhausted || graph[edge.origin].distance) {
-        return;
-      }
-
-      graph[edge.origin].distance = node.distance + 1;
-      queue.enqueue(edge.origin);
-    });
-
-    if (graph[start].distance) {
-      return graph[start].distance;
-    }
-  }
-
-  return -1;
-}
-
-function checkSourcesResiduals(graph) {
-  return Object.keys(graph[1].edges).reduce((acc, destiny) =>
-    acc += graph[1].edges[destiny].capacity - graph[1].edges[destiny].residual
-  , 0);
-}
-
-function print(graph) {
-  Object.keys(graph).forEach(nodeKey =>
-    Object.keys(graph[nodeKey].edges).forEach(edgeKey => 
-      console.log(nodeKey, graph[nodeKey].edges[edgeKey].destiny, graph[nodeKey].edges[edgeKey])
-    )
-  );
-}
-
-function resetVisitedGraph(graph, sinkId) {
-  Object.keys(graph).forEach(stringNodeKey => {
-    const nodeKey = parseInt(stringNodeKey, 10);
-    let areAllEdgesExhausted = true;
-
-    graph[nodeKey].visited = false;
-
-    Object.keys(graph[nodeKey].edges).forEach(edgeKey => {
-      if (areAllEdgesExhausted && !graph[nodeKey].edges[edgeKey].exhausted) {
-        areAllEdgesExhausted = false;
-      }
-
-      graph[nodeKey].edges[edgeKey].visited = graph[nodeKey].edges[edgeKey].exhausted;
-    });
-
-    if (nodeKey !== sinkId) {
-      graph[nodeKey].exhausted = areAllEdgesExhausted;
-    }
-  });
-}
-
-function findShortestPath(graph, sinkId) {
-  const path = [];
-  let maxFlow = undefined;
-  let currentNode = 1;
-  let lastCurrentNode = undefined;
-  let addEdge = undefined;
-
-  while (currentNode && currentNode !== sinkId) {
-    console.log('cur', currentNode);
-
-    if (currentNode === lastCurrentNode) {
-      break;
-    }
-
-    const { edges } = graph[currentNode];
-
-    console.log('edges', edges);
-
-    graph[currentNode].visited = true;
-
-    lastCurrentNode = currentNode;
-
-    const nextNodeInfo = Object.keys(edges).reduce((acc, edgeKey) => {
-      const edge = edges[edgeKey];
-      const destiny = graph[edge.destiny];
-      console.log('LOOP EDGE KEY', edgeKey, graph[edge.destiny]);
-
-      console.log(1111111, edge.exhausted, graph[edge.destiny].visited);
-
-      if (edge.origin === edge.destiny) {
-        edge.exhausted = true;
-        return acc;
-      }
-
-      if (edge.exhausted || destiny.visited || destiny.distance === undefined) {
-        return acc;
-      }
-
-      if (destiny.exhausted) {
-        edge.exhausted =  true;
-        return acc;
-      }
-
-      console.log('LOOP', acc, edge.destiny);
-
-      if (acc === undefined) {
-        addEdge = edge;
-        return { node: edge.destiny, capacity: edge.capacity };
-      }
-
-      const edgeDistance = destiny.distance;
-      const accDistance = graph[acc.node].distance;
-
-      if (
-        (
-          edgeDistance < accDistance
-          || ((edgeDistance === accDistance) && edge.capacity > acc.capacity)
-        ) && !destiny.visited
-      ) {
-        addEdge = edge;
-        return { node: edge.destiny, capacity: edge.capacity };
-      }
-
-      return acc;
-    }, undefined);
-
-    currentNode = nextNodeInfo?.node;
-
-    console.log('currentNode', currentNode, graph[currentNode]);
-
-    if (addEdge) {
-      console.log('add edge', addEdge);
-
-      path.push(addEdge);
-
-      if (maxFlow === undefined) {
-        maxFlow = addEdge.residual;
-      } else {
-        maxFlow = Math.min(maxFlow, addEdge.residual);
-      }
-    }
-
-    addEdge = undefined
-  }
-
-  if (path.length && path[path.length - 1].destiny !== sinkId) {
-    console.log('NEGATIVE path to return', { path, maxFlow });
-    path[path.length - 1].exhausted = true;
-
-    console.log('NOW IS EXHAUSTED', path[path.length - 1]);
-
-    resetVisitedGraph(graph, sinkId);
-
-    return findShortestPath(graph, sinkId);
-  }
-
-  console.log('POSITIVE path to return', { path, maxFlow });
-
-  return { path, maxFlow };
+  return fordFulkerson;
 }
 
 function evacuation(verticesQt, connections) {
-  const graph = buildGraph(verticesQt);
+  const graph = buildGraph(connections);
 
-  createConnections(graph, connections);
-
-  reverseBfs(graph, 1, verticesQt);
-
-  resetVisitedGraph(graph, verticesQt);
-
-  let shortestPath = findShortestPath(graph, verticesQt);
-
-  resetVisitedGraph(graph, verticesQt);
-
-  while (shortestPath.maxFlow > 0) {
-    shortestPath.path.forEach(edge => {
-      edge.residual -= shortestPath.maxFlow;
-
-      if (!edge.residual) {
-        edge.exhausted = true;
-      }
-    });
-
-    print(graph);
-
-    shortestPath = findShortestPath(graph, verticesQt);
-    resetVisitedGraph(graph, verticesQt);
-  }
-
-  return checkSourcesResiduals(graph);
+  return graph.maxFlow(1, verticesQt);
 }
 
 function test(onlyTest) {
