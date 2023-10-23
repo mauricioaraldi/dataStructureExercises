@@ -47,41 +47,24 @@ const readLines = (asXML) => {
 };
 
 class FordFulkerson {
-  constructor() {
-    this.graph = new Map();
+  constructor(graph) {
+    this.graph = graph;
   }
 
-  addEdge(u, v, capacity) {
-    if (!this.graph.has(u)) {
-      this.graph.set(u, []);
-    }
+  bfs(graph, parent, source, sink) {
+    const visited = new Array(graph.length).fill(false);
 
-    if (!this.graph.has(v)) {
-      this.graph.set(v, []);
-    }
+    visited[source] = true;
 
-    this.graph.get(u).push({ node: v, capacity, reverse: null });
-    this.graph.get(v).push({ node: u, capacity: 0, reverse: null });
-    this.graph.get(u)[this.graph.get(u).length - 1].reverse = this.graph.get(v)[this.graph.get(v).length - 1];
-    this.graph.get(v)[this.graph.get(v).length - 1].reverse = this.graph.get(u)[this.graph.get(u).length - 1];
-  }
-
-  bfs(source, sink, parent) {
-    const visited = new Set();
     const queue = [source];
-
-    visited.add(source);
 
     while (queue.length > 0) {
       const u = queue.shift();
 
-      for (const edge of this.graph.get(u)) {
-        const v = edge.node;
-        const capacity = edge.capacity;
-
-        if (!visited.has(v) && capacity > 0) {
-          parent[v] = { node: u, edge: edge };
-          visited.add(v);
+      for (let v = 0; v < graph.length; v++) {
+        if (!visited[v] && graph[u][v] > 0) {
+          parent[v] = u;
+          visited[v] = true;
           queue.push(v);
 
           if (v === sink) {
@@ -95,31 +78,33 @@ class FordFulkerson {
   }
 
   maxFlow(source, sink) {
-    const parent = {};
+    const graph = this.graph;
+    const numVertices = graph.length;
+    const parent = new Array(numVertices);
+
     let maxFlow = 0;
 
-    while (this.bfs(source, sink, parent)) {
-      let pathFlow = Number.POSITIVE_INFINITY;
-      let currentNode = sink;
+    while (this.bfs(graph, parent, source, sink)) {
+      let pathFlow = Number.MAX_VALUE;
+      let s = sink;
 
-      while (currentNode !== source) {
-        const { edge } = parent[currentNode];
+      while (s !== source) {
+        const u = parent[s];
 
-        pathFlow = Math.min(pathFlow, edge.capacity);
-        currentNode = parent[currentNode].node;
+        pathFlow = Math.min(pathFlow, graph[u][s]);
+        s = u;
       }
 
       maxFlow += pathFlow;
 
-      currentNode = sink;
+      let v = sink;
 
-      while (currentNode !== source) {
-        const { edge } = parent[currentNode];
+      while (v !== source) {
+        const u = parent[v];
 
-        edge.capacity -= pathFlow;
-        edge.reverse.capacity += pathFlow;
-
-        currentNode = parent[currentNode].node;
+        graph[u][v] -= pathFlow;
+        graph[v][u] += pathFlow;
+        v = u;
       }
     }
 
@@ -127,22 +112,10 @@ class FordFulkerson {
   }
 }
 
-function buildGraph(connections) {
-  const fordFulkerson = new FordFulkerson();
-
-  connections.forEach(connection => {
-    fordFulkerson.addEdge(connection[0], connection[1], connection[2]);
-  });
-
-  return fordFulkerson;
-}
-
 function assignCrewsToFlights(flightsQt, crewsQt, distribution) {
-  console.log(flightsQt, crewsQt, distribution);
-  // const graph = buildGraph(connections);
+  const fordFulkerson = new FordFulkerson(distribution);
 
-  // return graph.maxFlow(1, verticesQt);
-  return [];
+  return fordFulkerson.maxFlow(1, flightsQt);
 }
 
 function test(onlyTest) {
