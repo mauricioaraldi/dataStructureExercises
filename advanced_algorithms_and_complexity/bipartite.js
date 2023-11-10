@@ -94,9 +94,11 @@ class FordFulkerson {
     return false;
   }
 
-  maxFlow(source, sink) {
+  maxFlow(source, sink, flightsQt) {
     const parent = {};
+    const schedule = new Array(flightsQt).fill(-1);
     let maxFlow = 0;
+    let currentPair = [];
 
     while (this.bfs(source, sink, parent)) {
       let pathFlow = Number.POSITIVE_INFINITY;
@@ -107,6 +109,18 @@ class FordFulkerson {
 
         pathFlow = Math.min(pathFlow, edge.capacity);
         currentNode = parent[currentNode].node;
+
+        if (currentNode !== source) {
+          currentPair.push(currentNode);
+
+          if (currentPair.length === 2) {
+            const [crew, flight] = currentPair;
+
+            currentPair = [];
+
+            schedule[flight - 2] = crew - flightsQt - 1;
+          }
+        }
       }
 
       maxFlow += pathFlow;
@@ -123,7 +137,7 @@ class FordFulkerson {
       }
     }
 
-    return maxFlow;
+    return { schedule, maxFlow };
   }
 }
 
@@ -149,8 +163,9 @@ function buildGraph(flightsQt, crewsQt, distribution) {
 
 function assignCrewsToFlights(flightsQt, crewsQt, distribution) {
   const graph = buildGraph(flightsQt, crewsQt, distribution);
+  const maxFlow = graph.maxFlow(1, flightsQt + crewsQt + 2, flightsQt);
 
-  return graph.maxFlow(1, flightsQt + crewsQt + 2);
+  return maxFlow.schedule.join(' ');
 }
 
 function test(onlyTest) {
@@ -184,13 +199,18 @@ function test(onlyTest) {
   ];
 
   if (onlyTest !== undefined) {
-    testCases = [testCases.find(testCase => testCase.id == onlyTest)];
+    testCases = [testCases.find(testCase => testCase.id == onlyTest)].filter(test => test);
+  }
+
+  if (!testCases.length) {
+    console.log('No tests found!');
+    process.exit();
   }
 
   testCases.forEach(testCase => {
     const result = testCase.run();
 
-    if (result === testCase.expected) {
+    if (result === testCase.expected.join(' ')) {
       console.log(`[V] Passed test ${testCase.id}`);
     } else {
       console.log(`[X] Failed test ${testCase.id}`);
