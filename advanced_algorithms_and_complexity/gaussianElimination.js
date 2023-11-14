@@ -46,11 +46,11 @@ const readLines = (asXML) => {
   });
 };
 
-function getLeftmostNonZeroIndex(matrix) {
-  for (let i = 0; i < matrix[0].length; i++) {
-    for (let j = 0; j < matrix.length; j++) {
-      if (matrix[j][i]) {
-        return j;
+function getLeftmostNonZeroIndex(matrix, solvedColumns) {
+  for (let i = 0; i < matrix.length; i++) {
+    for (let j = 0; j < matrix[i].length; j++) {
+      if (matrix[i][j] && !solvedColumns.has(j)) {
+        return { row: i, column: j };
       }
     }
   }
@@ -58,31 +58,75 @@ function getLeftmostNonZeroIndex(matrix) {
   return null;
 }
 
-function rescalePivot(matrix, pivot) {
-  const divisor = Math.min(matrix[0][pivot], matrix[0][matrix[0].length - 1]);
+function rescalePivot(matrix, pivotIndex) {
+  const divisor = Math.min(matrix[0][pivotIndex], matrix[0][matrix[0].length - 1]);
 
   for (let i = 0; i < matrix[0].length; i++) {
     matrix[0][i] = matrix[0][i] / divisor;
   }
 }
 
-function normalizePivot(matrix, pivot) {}
+function normalizePivot(matrix, columnIndex) {
+  let shouldNormalize = false;
 
-function rowReduce(matrix) {
-  const leftmostNonZeroIndex = getLeftmostNonZeroIndex(matrix);
-  const leftmostNonZero = matrix.splice(leftmostNonZeroIndex, 1)[0];
-
-  matrix.unshift(leftmostNonZero);
-
-  const pivotIndex = 0;
-
-  if (matrix[0][pivotIndex] !== 1) {
-    rescalePivot(matrix, pivotIndex);
+  for (let i = 1; i < matrix.length; i++) {
+    if (matrix[i][columnIndex]) {
+      shouldNormalize = true;
+      break;
+    };
   }
 
-  normalizePivot(matrix, pivotIndex);
+  if (!shouldNormalize) {
+    return;
+  }
 
-  return matrix;
+  for (let i = 1; i < matrix.length; i++) {
+    for (let j = 0; j <= matrix.length; j++) {
+      matrix[i][j] -= matrix[0][j];
+    }
+  }
+
+  return normalizePivot(matrix, columnIndex);
+}
+
+function rowReduce(matrix, solvedColumns = new Set()) {
+  const solvedRowsInitialSize = solvedColumns.size;
+  const leftmostNonZeroRowColumn = getLeftmostNonZeroIndex(matrix, solvedColumns);
+
+  if (!leftmostNonZeroRowColumn) {
+    return;
+  }
+
+  const { row: rowIndex, column: columnIndex } = leftmostNonZeroRowColumn;
+  const leftmostNonZeroRow = matrix.splice(rowIndex, 1)[0];
+
+  matrix.unshift(leftmostNonZeroRow);
+
+  console.log('hhhhhh', rowIndex, columnIndex);
+
+  if (matrix[0][columnIndex] !== 1) {
+    rescalePivot(matrix, columnIndex);
+  }
+
+  console.log(matrix);
+
+  normalizePivot(matrix, columnIndex);
+
+  console.log('pppppp');
+  console.log(matrix);
+  console.log('iiiiiiii');
+  console.log(solvedColumns);
+  console.log('pppppp');
+
+  solvedColumns.add(columnIndex);
+
+  console.log(solvedColumns);
+
+  if (solvedColumns.length === solvedRowsInitialSize) {
+    return;
+  }
+
+  return rowReduce(matrix, solvedColumns);
 }
 
 function calculateEnergyValues(dishes) {
@@ -90,10 +134,15 @@ function calculateEnergyValues(dishes) {
     return '';
   }
 
-  console.log(dishes);
-  console.log(' ------ ');
   rowReduce(dishes);
-  return '';
+
+  const result = [];
+
+  for (let i = 0; i < dishes.length; i++) {
+    result.push(parseFloat(dishes[i][dishes[i].length - 1]).toFixed(6));
+  }
+
+  return result.join(' ');
 }
 
 function test(onlyTest) {
