@@ -31,6 +31,8 @@ const readLines = (asXML) => {
     const readIngredients = line => {
       const ingredients = line.toString().split(' ').map(v => parseInt(v, 10));
 
+      ingredients.push(0);
+
       dishes.push(ingredients);
 
       if (!--n) {
@@ -47,32 +49,34 @@ const readLines = (asXML) => {
 };
 
 function getLeftmostNonZeroRowIndex(matrix, pivot) {
-  for (let i = pivot; i < matrix[i].length - 1; i++) {
-    if (matrix[i][pivot]) {
-      return i;
+  for (let column = 0; column < matrix[0].length - 2; column++) {
+    for (let row = 0; row < matrix.length; row++) {
+      if (matrix[row][matrix[row].length - 1] === 0 && matrix[row][column]) {
+        return { row, column };
+      }
     }
   }
 
   return null;
 }
 
-function rescalePivot(matrix, pivot) {
-  const divisor = Math.min(matrix[pivot][pivot], matrix[pivot][matrix[0].length - 1]);
+function rescalePivot(matrix, pivotColumn) {
+  const divisor = Math.min(matrix[0][pivotColumn], matrix[0][matrix[0].length - 2]);
 
-  for (let i = pivot; i < matrix[pivot].length; i++) {
-    matrix[pivot][i] = matrix[pivot][i] / divisor;
+  for (let i = 0; i < matrix[0].length - 1; i++) {
+    matrix[0][i] = matrix[0][i] / divisor;
   }
 
-  if (matrix[pivot][pivot] !== 1) {
-    rescalePivot(matrix,pivot);
+  if (matrix[0][pivotColumn] !== 1) {
+    rescalePivot(matrix, pivotColumn);
   }
 }
 
-function normalizePivot(matrix, columnIndex) {
+function normalizePivot(matrix, pivotColumn) {
   let shouldNormalize = false;
 
   for (let i = 1; i < matrix.length; i++) {
-    if (matrix[i][columnIndex]) {
+    if (matrix[i][pivotColumn]) {
       shouldNormalize = true;
       break;
     };
@@ -83,65 +87,57 @@ function normalizePivot(matrix, columnIndex) {
   }
 
   for (let i = 1; i < matrix.length; i++) {
-    for (let j = 0; j <= matrix.length; j++) {
+    for (let j = 0; j < matrix[i].length - 1; j++) {
       matrix[i][j] -= matrix[0][j];
     }
   }
 
-  return normalizePivot(matrix, columnIndex);
+  return normalizePivot(matrix, pivotColumn);
 }
 
 function swapArrayRows(matrix, initial, final) {
   const initialContent = matrix[initial];
 
-  console.log('=========', matrix, initial, final);
-
   matrix[initial] = matrix[final];
   matrix[final] = initialContent;
-
-  console.log('-------', matrix);
 }
 
-function rowReduce(matrix, pivot) {
-  const leftmostNonZeroRowIndex = getLeftmostNonZeroRowIndex(matrix, pivot);
+function rowReduce(matrix, currentColumn) {
+  const { row: pivotRow, column: pivotColumn } = getLeftmostNonZeroRowIndex(matrix, currentColumn);
 
-  if (leftmostNonZeroRowIndex === null
-    || pivot === leftmostNonZeroRowIndex) {
-    return;
+  matrix[pivotRow][matrix[pivotRow].length - 1] = 1;
+
+  swapArrayRows(matrix, 0, pivotRow);
+
+  if (matrix[pivotRow][pivotColumn] !== 1) {
+    rescalePivot(matrix, pivotColumn);
   }
 
-  swapArrayRows(matrix, pivot, leftmostNonZeroRowIndex);
+  console.log('before normalize', matrix);
 
-  if (matrix[pivot][pivot] !== 1) {
-    rescalePivot(matrix, pivot);
+  normalizePivot(matrix, pivotColumn);
+
+  console.log('after normalize', matrix);
+}
+
+function reorder(matrix) {
+  for (let column = 0; column < matrix[0].length - 2; column++) {
+    for (let row = 0; row < matrix.length; row++) {
+      if (matrix[row][column] && row !== column) {
+        swapArrayRows(matrix, column, row);
+
+        return reorder(matrix);
+      }
+    }
   }
-
-  // console.log(matrix);
-
-  // normalizePivot(matrix, columnIndex);
-
-  // console.log('pppppp');
-  // console.log(matrix);
-  // console.log('iiiiiiii');
-  // console.log(solvedColumns);
-  // console.log('pppppp');
-
-  // solvedColumns.add(columnIndex);
-
-  // console.log(solvedColumns);
-
-  // if (solvedColumns.length === solvedRowsInitialSize) {
-  //   return;
-  // }
-
-  // return rowReduce(matrix, solvedColumns);
 }
 
 function gaussianElimination(matrix) {
-  console.log(matrix);
-  for (let i = 0; i < matrix[0].length - 1; i++) {
+  for (let i = 0; i < matrix[0].length - 2; i++) {
     rowReduce(matrix, i);
   }
+
+  reorder(matrix);
 }
 
 function calculateEnergyValues(dishes) {
@@ -154,7 +150,7 @@ function calculateEnergyValues(dishes) {
   const result = [];
 
   for (let i = 0; i < dishes.length; i++) {
-    result.push(parseFloat(dishes[i][dishes[i].length - 1]).toFixed(6));
+    result.push(parseFloat(dishes[i][dishes[i].length - 2]).toFixed(6));
   }
 
   return result.join(' ');
@@ -174,10 +170,10 @@ function test(onlyTest) {
       id: 2,
       run: () => calculateEnergyValues(
         [
-          [1, 0, 0, 0, 1],
-          [0, 1, 0, 0, 5],
-          [0, 0, 1, 0, 4],
-          [0, 0, 0, 1, 3],
+          [1, 0, 0, 0, 1, 0],
+          [0, 1, 0, 0, 5, 0],
+          [0, 0, 1, 0, 4, 0],
+          [0, 0, 0, 1, 3, 0],
         ]
       ),
       expected: '1.000000 5.000000 4.000000 3.000000',
@@ -187,8 +183,8 @@ function test(onlyTest) {
       id: 3,
       run: () => calculateEnergyValues(
         [
-          [1, 1, 3],
-          [2, 3, 7],
+          [1, 1, 3, 0],
+          [2, 3, 7, 0],
         ]
       ),
       expected: '2.000000 1.000000',
@@ -198,8 +194,8 @@ function test(onlyTest) {
       id: 4,
       run: () => calculateEnergyValues(
         [
-          [5, -5, -1],
-          [-1, -2, -1],
+          [5, -5, -1, 0],
+          [-1, -2, -1, 0],
         ]
       ),
       expected: '0.200000 0.400000',
