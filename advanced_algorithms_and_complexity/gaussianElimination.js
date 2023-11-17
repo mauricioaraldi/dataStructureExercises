@@ -61,7 +61,7 @@ function getLeftmostNonZeroRowIndex(matrix, pivot) {
 }
 
 function rescalePivot(matrix, pivotColumn) {
-  const divisor = Math.min(matrix[0][pivotColumn], matrix[0][matrix[0].length - 2]);
+  const divisor = matrix[0][pivotColumn];
 
   for (let i = 0; i < matrix[0].length - 1; i++) {
     matrix[0][i] = matrix[0][i] / divisor;
@@ -86,9 +86,17 @@ function normalizePivot(matrix, pivotColumn) {
     return;
   }
 
+  console.log('sadasdasd', matrix);
+
   for (let i = 1; i < matrix.length; i++) {
     for (let j = 0; j < matrix[i].length - 1; j++) {
-      matrix[i][j] -= matrix[0][j];
+      if (matrix[i][j] < 0) {
+        matrix[i][j] += matrix[0][j];
+      }
+
+      if (matrix[i][j] > 0) {
+        matrix[i][j] -= matrix[0][j];
+      }
     }
   }
 
