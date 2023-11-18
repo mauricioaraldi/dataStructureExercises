@@ -90,9 +90,7 @@ function normalizePivot(matrix, pivotColumn) {
     for (let j = 0; j < matrix[i].length - 1; j++) {
       if (matrix[i][j] < 0) {
         matrix[i][j] += matrix[0][j];
-      }
-
-      if (matrix[i][j] > 0) {
+      } else if (matrix[i][j] > 0) {
         matrix[i][j] -= matrix[0][j];
       }
     }
@@ -152,7 +150,7 @@ function calculateEnergyValues(dishes) {
   const result = [];
 
   for (let i = 0; i < dishes.length; i++) {
-    result.push(parseFloat(Math.abs(dishes[i][dishes[i].length - 2])).toFixed(6));
+    result.push(parseFloat(dishes[i][dishes[i].length - 2]).toFixed(6));
   }
 
   return result.join(' ');
