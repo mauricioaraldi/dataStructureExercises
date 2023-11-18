@@ -86,8 +86,6 @@ function normalizePivot(matrix, pivotColumn) {
     return;
   }
 
-  console.log('sadasdasd', matrix);
-
   for (let i = 1; i < matrix.length; i++) {
     for (let j = 0; j < matrix[i].length - 1; j++) {
       if (matrix[i][j] < 0) {
@@ -121,11 +119,7 @@ function rowReduce(matrix, currentColumn) {
     rescalePivot(matrix, pivotColumn);
   }
 
-  console.log('before normalize', matrix);
-
   normalizePivot(matrix, pivotColumn);
-
-  console.log('after normalize', matrix);
 }
 
 function reorder(matrix) {
@@ -158,7 +152,7 @@ function calculateEnergyValues(dishes) {
   const result = [];
 
   for (let i = 0; i < dishes.length; i++) {
-    result.push(parseFloat(dishes[i][dishes[i].length - 2]).toFixed(6));
+    result.push(parseFloat(Math.abs(dishes[i][dishes[i].length - 2])).toFixed(6));
   }
 
   return result.join(' ');
