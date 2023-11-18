@@ -21,9 +21,9 @@ const readLines = (asXML) => {
   const dishes = [];
 
   rl.once('line', line => {
-    const dishes = parseInt(line, 10);
+    let n = parseInt(line, 10);
 
-    if (dishes === 0) {
+    if (n === 0) {
       process.stdout.write('');
       process.exit();
     }
