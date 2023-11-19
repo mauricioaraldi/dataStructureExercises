@@ -86,6 +86,8 @@ function normalizePivot(matrix, pivotColumn) {
     return;
   }
 
+  console.log(matrix);
+
   for (let i = 1; i < matrix.length; i++) {
     for (let j = 0; j < matrix[i].length - 1; j++) {
       if (matrix[i][j] < 0) {
@@ -207,12 +209,13 @@ function test(onlyTest) {
       id: 5,
       run: () => calculateEnergyValues(
         [
-          [1, -2, 1, 0, 0],
-          [2, 1, -3, 5, 0],
-          [4, -7, 1, -1, 0],
+          [5, 3, 9, -1, 0],
+          [-2, 3, 1, -2, 0],
+          [-1, -4, 5, 1, 0],
         ]
       ),
-      expected: '3.000000 2.000000 1.000000',
+      expected: '0.266968 −0.452488 −0.108597',
+
     },
   ];
 
