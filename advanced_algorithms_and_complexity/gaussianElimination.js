@@ -107,6 +107,8 @@ function swapArrayRows(matrix, initial, final) {
 }
 
 function rowReduce(matrix, currentColumn) {
+  console.log(matrix);
+
   const { row: pivotRow, column: pivotColumn } = getLeftmostNonZeroRowIndex(matrix, currentColumn);
 
   matrix[pivotRow][matrix[pivotRow].length - 1] = 1;
@@ -199,6 +201,18 @@ function test(onlyTest) {
         ]
       ),
       expected: '0.200000 0.400000',
+    },
+
+    {
+      id: 5,
+      run: () => calculateEnergyValues(
+        [
+          [1, -2, 1, 0, 0],
+          [2, 1, -3, 5, 0],
+          [4, -7, 1, -1, 0],
+        ]
+      ),
+      expected: '3.000000 2.000000 1.000000',
     },
   ];
 
