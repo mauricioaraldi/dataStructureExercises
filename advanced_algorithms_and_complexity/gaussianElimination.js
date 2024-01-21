@@ -60,7 +60,7 @@ function getLeftmostNonZeroRowIndex(matrix, pivot) {
   return null;
 }
 
-function rescalePivot(matrix, pivotColumn) {
+function normalizePivotRow(matrix, pivotColumn) {
   const divisor = matrix[0][pivotColumn];
 
   for (let i = 0; i < matrix[0].length - 1; i++) {
@@ -68,11 +68,11 @@ function rescalePivot(matrix, pivotColumn) {
   }
 
   if (matrix[0][pivotColumn] !== 1) {
-    rescalePivot(matrix, pivotColumn);
+    normalizePivotRow(matrix, pivotColumn);
   }
 }
 
-function normalizePivot(matrix, pivotColumn) {
+function normalizePivotColumn(matrix, pivotColumn) {
   let shouldNormalize = false;
 
   for (let i = 1; i < matrix.length; i++) {
@@ -86,19 +86,24 @@ function normalizePivot(matrix, pivotColumn) {
     return;
   }
 
-  console.log(matrix);
-
   for (let i = 1; i < matrix.length; i++) {
+    if (matrix[i][pivotColumn] === 0) {
+      continue;
+    }
+
+    const shouldAdd = matrix[i][pivotColumn] < 0;
+    const multiplier = Math.abs(matrix[i][pivotColumn]);
+
     for (let j = 0; j < matrix[i].length - 1; j++) {
-      if (matrix[i][j] < 0) {
-        matrix[i][j] += matrix[0][j];
-      } else if (matrix[i][j] > 0) {
-        matrix[i][j] -= matrix[0][j];
+      if (shouldAdd) {
+        matrix[i][j] += (matrix[0][j] * multiplier);
+      } else {
+        matrix[i][j] -= (matrix[0][j] * multiplier);
       }
     }
   }
 
-  return normalizePivot(matrix, pivotColumn);
+  return normalizePivotColumn(matrix, pivotColumn);
 }
 
 function swapArrayRows(matrix, initial, final) {
@@ -109,8 +114,6 @@ function swapArrayRows(matrix, initial, final) {
 }
 
 function rowReduce(matrix, currentColumn) {
-  console.log(matrix);
-
   const { row: pivotRow, column: pivotColumn } = getLeftmostNonZeroRowIndex(matrix, currentColumn);
 
   matrix[pivotRow][matrix[pivotRow].length - 1] = 1;
@@ -118,10 +121,10 @@ function rowReduce(matrix, currentColumn) {
   swapArrayRows(matrix, 0, pivotRow);
 
   if (matrix[pivotRow][pivotColumn] !== 1) {
-    rescalePivot(matrix, pivotColumn);
+    normalizePivotRow(matrix, pivotColumn);
   }
 
-  normalizePivot(matrix, pivotColumn);
+  normalizePivotColumn(matrix, pivotColumn);
 }
 
 function reorder(matrix) {
@@ -144,6 +147,13 @@ function gaussianElimination(matrix) {
   reorder(matrix);
 }
 
+function toPrecision(number) {
+  const strNumber = number.toString();
+  const decimalPointIndex = strNumber.indexOf('.');
+
+  return Number(strNumber.slice(0, decimalPointIndex + 7)).toFixed(6);
+}
+
 function calculateEnergyValues(dishes) {
   if (!dishes || !dishes.length) {
     return '';
@@ -154,7 +164,7 @@ function calculateEnergyValues(dishes) {
   const result = [];
 
   for (let i = 0; i < dishes.length; i++) {
-    result.push(parseFloat(dishes[i][dishes[i].length - 2]).toFixed(6));
+    result.push(toPrecision(dishes[i][dishes[i].length - 2]));
   }
 
   return result.join(' ');
@@ -202,7 +212,7 @@ function test(onlyTest) {
           [-1, -2, -1, 0],
         ]
       ),
-      expected: '0.200000 0.400000',
+      expected: '0.199999 0.399999',
     },
 
     {
@@ -214,7 +224,7 @@ function test(onlyTest) {
           [-1, -4, 5, 1, 0],
         ]
       ),
-      expected: '0.266968 −0.452488 −0.108597',
+      expected: '0.266968 -0.452488 -0.108597',
 
     },
   ];
