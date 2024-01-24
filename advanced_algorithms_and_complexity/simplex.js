@@ -1,13 +1,24 @@
-// Input: First line integer n - the number of dishes in the menu, and the number of different ingredients is the same.
-// Next n lines description 'an', E of a single menu item. 'ai' amount of i-th ingredient in the dish, and E is the
-// energy value. If ingredient is not used, amount will be specified as ai = 0; need to work with negative numbers ai < 0.
-// Example input: 4
-//                1 0 0 0 1
-//                0 1 0 0 5
-//                0 0 1 0 4
-//                0 0 0 1 3
-// Output: n numbers (energy value for each ingredient). Max 3 digits after decimal point.
-// Example output: 1.000000 5.000000 4.000000 3.000000
+// Input: First line integer n and m (n number of restrictions on the diet, m number of dishes/drinks).
+// Next n + 1 lines coefficients of inequalities (form Ax <= b, where x = amount is the vector of
+// length m with amounts of each ingredient, A is the n x m matrix with coefficients of inequalities and
+// b is the vector with the right-hand side of each inequality). Specifically, the next n lines contains
+// m integers Ai1, 𝐴i2, ... and the next line after those n contains n integers b1, b2, ... .These
+// lines describe n inequalities of the form Ai1 x amount1 + Ai2 x amount2 + ... x amountm <= bi. The
+// last line of the input contains m integers - the pleasure for consuming one item of each dish and drink
+// pleasure1, pleasure2, ... .
+// Example input: 3 2
+//                -1 -1
+//                1 0
+//                0 1
+//                -1 2 2
+//                -1 2
+// Output: If there is no diet that satisfies all the restrictions, output "No solution".
+//         If you can get as much pleasure as you want despite all the restrictions, output “Infinity".
+//         If the maximum possible total pleasure is bounded, output two lines. On the first line, output
+// “Bounded solution”. On the second line, output m real numbers - the optimal amounts for each dish and drink.
+//         Output all the numbers with at least 15 digits after the decimal point.
+// Example output: Bounded solution
+//                 0.000000000000000 2.000000000000000
 
 const readline = require('readline');
 const rl = readline.createInterface({
@@ -18,33 +29,37 @@ const rl = readline.createInterface({
 const readLines = (asXML) => {
   process.stdin.setEncoding('utf8');
 
-  const dishes = [];
+  const allCoefficients = []
 
   rl.once('line', line => {
-    let n = parseInt(line, 10);
+    let [restrictionsQt, dishesQt] = line.toString().split(' ').map(v => parseInt(v, 10));
+
+    let n = restrictionsQt + 1;
 
     if (n === 0) {
       process.stdout.write('');
       process.exit();
     }
 
-    const readIngredients = line => {
-      const ingredients = line.toString().split(' ').map(v => parseInt(v, 10));
+    const readCoefficients = line => {
+      const coefficients = line.toString().split(' ').map(v => parseInt(v, 10));
 
-      ingredients.push(0);
-
-      dishes.push(ingredients);
+      allCoefficients.push(coefficients);
 
       if (!--n) {
-        rl.removeListener('line', readIngredients);
+        rl.removeListener('line', readCoefficients);
 
-        process.stdout.write(calculateEnergyValues(dishes).toString());
+        rl.once('line', line => {
+          const pleasures = line.toString().split(' ').map(v => parseInt(v, 10));
 
-        process.exit();
+          process.stdout.write(calculateDiet(allCoefficients, pleasures).join('\n'));
+
+          process.exit();
+        });
       }
     };
 
-    rl.on('line', readIngredients);
+    rl.on('line', readCoefficients);
   });
 };
 
@@ -71,20 +86,33 @@ function normalizePivotRow(matrix, pivotColumn) {
     normalizePivotRow(matrix, pivotColumn);
   }
 }
-
+let maxLoop = 0;
 function normalizePivotColumn(matrix, pivotColumn) {
   let shouldNormalize = false;
 
+  console.log(111111, pivotColumn, matrix);
+
   for (let i = 1; i < matrix.length; i++) {
+    console.log(matrix[i][pivotColumn]);
     if (matrix[i][pivotColumn]) {
       shouldNormalize = true;
       break;
     };
+
+    console.log(12121212);
   }
+
+  if (++maxLoop === 5) {
+    return;
+  }
+
+  console.log(222222);
 
   if (!shouldNormalize) {
     return;
   }
+
+  console.log(2333333);
 
   for (let i = 1; i < matrix.length; i++) {
     if (matrix[i][pivotColumn] === 0) {
@@ -102,6 +130,8 @@ function normalizePivotColumn(matrix, pivotColumn) {
       }
     }
   }
+
+  console.log(444444);
 
   return normalizePivotColumn(matrix, pivotColumn);
 }
@@ -154,12 +184,22 @@ function toPrecision(number) {
   return Number(strNumber.slice(0, decimalPointIndex + 7)).toFixed(6);
 }
 
-function calculateEnergyValues(dishes) {
-  if (!dishes || !dishes.length) {
-    return '';
+
+function calculateDiet(coefficients, pleasures) {
+  if (!coefficients || !coefficients.length) {
+    return ['No solution'];
   }
 
-  gaussianElimination(dishes);
+  for (let i = 0; i < coefficients.length - 1; i++) {
+    coefficients[i].push(coefficients[coefficients.length - 1][i]);
+    coefficients[i].push(0);
+  }
+
+  coefficients.pop();
+
+  console.log(coefficients);
+
+  gaussianElimination(coefficients);
 
   const result = [];
 
@@ -167,65 +207,48 @@ function calculateEnergyValues(dishes) {
     result.push(toPrecision(dishes[i][dishes[i].length - 2]));
   }
 
-  return result.join(' ');
+  console.log(results);
+
+  return ['...', '...'];
 }
 
 function test(onlyTest) {
   let testCases = [
     {
       id: 1,
-      run: () => calculateEnergyValues(
-        []
+      run: () => calculateDiet(
+        [
+          [-1, -1],
+          [1, 0],
+          [0, 1],
+          [-1, 2, 2],
+        ],
+        [-1, 2],
       ),
-      expected: '',
+      expected: 'Bounded solution 0.000000000000000 2.000000000000000',
     },
-
     {
       id: 2,
-      run: () => calculateEnergyValues(
+      run: () => calculateDiet(
         [
-          [1, 0, 0, 0, 1, 0],
-          [0, 1, 0, 0, 5, 0],
-          [0, 0, 1, 0, 4, 0],
-          [0, 0, 0, 1, 3, 0],
-        ]
+          [1, 1],
+          [-1, -1],
+          [1, -2],
+        ],
+        [1, 1],
       ),
-      expected: '1.000000 5.000000 4.000000 3.000000',
+      expected: 'No solution',
     },
-
     {
       id: 3,
-      run: () => calculateEnergyValues(
+      run: () => calculateDiet(
         [
-          [1, 1, 3, 0],
-          [2, 3, 7, 0],
-        ]
+          [0, 0, 1],
+          [3],
+        ],
+        [1, 1, 1],
       ),
-      expected: '2.000000 1.000000',
-    },
-
-    {
-      id: 4,
-      run: () => calculateEnergyValues(
-        [
-          [5, -5, -1, 0],
-          [-1, -2, -1, 0],
-        ]
-      ),
-      expected: '0.199999 0.399999',
-    },
-
-    {
-      id: 5,
-      run: () => calculateEnergyValues(
-        [
-          [5, 3, 9, -1, 0],
-          [-2, 3, 1, -2, 0],
-          [-1, -4, 5, 1, 0],
-        ]
-      ),
-      expected: '0.266968 -0.452488 -0.108597',
-
+      expected: 'Infinity',
     },
   ];
 
@@ -241,7 +264,7 @@ function test(onlyTest) {
   testCases.forEach(testCase => {
     const result = testCase.run();
 
-    if (result === testCase.expected) {
+    if (result.join(' ') === testCase.expected) {
       console.log(`[V] Passed test ${testCase.id}`);
     } else {
       console.log(`[X] Failed test ${testCase.id}`);
@@ -262,4 +285,4 @@ if (process && process.argv && process.argv.includes('-t')) {
 
 readLines();
 
-module.exports = calculateEnergyValues;
+module.exports = calculateDiet;
