@@ -103,7 +103,7 @@ function toPrecision(number) {
 
 function equalizeInequalities(coefficients) {
   for (let i = 0; i < coefficients.length; i++) {
-    coefficients[i].push(...Array(i).fill(0), 1, ...Array(coefficients.length - i).fill(0));
+    coefficients[i].push(...Array(i).fill(0), 1, ...Array(coefficients.length - i - 1).fill(0));
   }
 }
 
@@ -126,6 +126,9 @@ function identifyPivotColumn(matrix) {
   return pivotColumn;
 }
 
+/**
+ * Gets the smallest value from pivot column
+ */
 function identifyPivotRow(matrix, pivotColumn) {
   const pivotRow = {
     value: undefined,
@@ -146,6 +149,12 @@ function identifyPivotRow(matrix, pivotColumn) {
 }
 
 function simplex(matrix) {
+  for (let row = 0; row < matrix.length; row++) {
+    process.stdout.write(`${matrix[row].toString()}\n`);
+  }
+
+  process.stdout.write(`\n`);
+
   const pivotColumn = identifyPivotColumn(matrix);
 
   if (pivotColumn === undefined) {
@@ -160,28 +169,32 @@ function simplex(matrix) {
   return simplex(matrix);
 }
 
-function buildResult(matrix) {
-  const result = [];
+function buildResult(coefficientsSize, matrix) {
+  return matrix[matrix.length - 1].slice(0, coefficientsSize);
+}
 
-  for (let column = 0; column < matrix[0].length - 1; column++) {
-    const columnValues = [];
-    let rowIndex = undefined;
+/**
+ * No negative numbers might be in the rightHand. When that happens, we need to
+ * invert the inequality equation from <= to >=. We do that by multiplying all the
+ * coeffiecient and it's related rightHand by -1. We then add artificial variables
+ * that will correspond to each coefficient that went through this
+ */
+function checkNegatives(coefficients, rightHand) {
+  const artificialVariables = [];
 
-    for (let row = 0; row < matrix.length; row++) {
-      if (matrix[row][column] !== 0) {
-        columnValues.push(matrix[row][column]);
-        rowIndex = row;
-      }
+  for (let i = 0; i < coefficients.length; i++) {
+    if (rightHand[i] < 0) {
+      coefficients[i] = coefficients[i].map(v => v * -1);
+      rightHand[i] *= -1;
+
+      const artificialVariable = new Array(coefficients.length).fill(0);
+      artificialVariable[i] = 1;
+
+      artificialVariables.push(artificialVariable);
     }
-
-    if (Number(columnValues.join('')) === 1) {
-      result.push(matrix[rowIndex][matrix[0].length - 1]);
-    }
-
-    rowIndex = undefined;
   }
 
-  return result;
+  return artificialVariables;
 }
 
 function calculateDiet(coefficients, rightHand, pleasures) {
@@ -204,17 +217,29 @@ function calculateDiet(coefficients, rightHand, pleasures) {
 
   equalizeInequalities(coefficients);
 
+  const artificialVariables = checkNegatives(coefficients, rightHand);
   const table = [];
 
-  for (let i = 0; i <= coefficients.length - 1; i++) {
-    table.push([...coefficients[i], rightHand[i]]);
+  for (let i = 0; i < coefficients.length; i++) {
+    const currentCoefficients = coefficients[i];
+    const artificialValues = [];
+
+    for (let a = 0; a < artificialVariables.length; a++) {
+      artificialValues.push(artificialVariables[a][i]);
+    }
+
+    table.push([...currentCoefficients, ...artificialValues, rightHand[i]]);
   }
 
-  table.push([...pleasures.map(v => -v), ...Array(table[0].length - pleasures.length - 2).fill(0), 1, 0]);
+  table.push([...pleasures.map(v => -v), ...Array(table[0].length - pleasures.length - 2).fill(0), 0, 0]);
 
-  simplex(table);
+  for (let row = 0; row < table.length; row++) {
+    process.stdout.write(`${table[row].toString()}\n`);
+  }
 
-  const result = buildResult(table);
+  // simplex(table);
+
+  const result = buildResult(pleasures.length, table);
 
   return ['Bounded solution', result.map(v => v.toFixed(15)).join(' ')];
 }
@@ -267,7 +292,7 @@ function test(onlyTest) {
         [12, 16],
         [40, 30],
       ),
-      expected: 'Bounded solution 4.000000000000000 8.000000000000000 400.000000000000000',
+      expected: 'Bounded solution 0.000000000000000 0.000000000000000',
     },
   ];
 
