@@ -20,6 +20,8 @@
 // Example output: Bounded solution
 //                 0.000000000000000 2.000000000000000
 
+let stepsCount = 0;
+
 const readline = require('readline');
 const rl = readline.createInterface({
   input: process.stdin,
@@ -101,7 +103,7 @@ function toPrecision(number) {
   return Number(strNumber.slice(0, decimalPointIndex + 7)).toFixed(6);
 }
 
-function equalizeInequalities(coefficients) {
+function addSlackVariables(coefficients) {
   for (let i = 0; i < coefficients.length; i++) {
     coefficients[i].push(...Array(i).fill(0), 1, ...Array(coefficients.length - i - 1).fill(0));
   }
@@ -155,6 +157,11 @@ function simplex(matrix) {
 
   process.stdout.write(`\n`);
 
+  if (++stepsCount === 10) {
+    console.log('MAX STEPS');
+    return;
+  }
+
   const pivotColumn = identifyPivotColumn(matrix);
 
   if (pivotColumn === undefined) {
@@ -169,23 +176,20 @@ function simplex(matrix) {
   return simplex(matrix);
 }
 
-function buildResult(coefficientsSize, matrix) {
-  return matrix[matrix.length - 1].slice(0, coefficientsSize);
-}
-
 /**
  * No negative numbers might be in the rightHand. When that happens, we need to
  * invert the inequality equation from <= to >=. We do that by multiplying all the
  * coeffiecient and it's related rightHand by -1. We then add artificial variables
  * that will correspond to each coefficient that went through this
  */
-function checkNegatives(coefficients, rightHand) {
+function checkNegativesAddArtificialVariables(coefficients, rightHand, pleasures) {
   const artificialVariables = [];
 
   for (let i = 0; i < coefficients.length; i++) {
     if (rightHand[i] < 0) {
       coefficients[i] = coefficients[i].map(v => v * -1);
       rightHand[i] *= -1;
+      pleasures[i] *= -1;
 
       const artificialVariable = new Array(coefficients.length).fill(0);
       artificialVariable[i] = 1;
@@ -194,7 +198,45 @@ function checkNegatives(coefficients, rightHand) {
     }
   }
 
-  return artificialVariables;
+  for (let i = 0; i < coefficients.length; i++) {
+    const artificialValues = [];
+
+    for (let a = 0; a < artificialVariables.length; a++) {
+      artificialValues.push(artificialVariables[a][i]);
+    }
+
+    coefficients[i].push([...artificialValues]);
+  }
+}
+
+function calculateZ(coefficients, rightHand, pleasures) {
+  
+  return [];
+}
+
+function phaseOne(coefficients, rightHand, pleasures) {
+  const artificialVariables = [];
+
+  addSlackVariables(coefficients);
+
+  checkNegativesAddArtificialVariables(coefficients, rightHand, pleasures);
+
+  const z = calculateZ(coefficients, rightHand, pleasures);
+
+  for (let row = 0; row < coefficients.length; row++) {
+    process.stdout.write(`${coefficients[row].toString()}\n`);
+  }
+
+  process.stdout.write(`\n`);
+
+  if (++stepsCount === 5) {
+    console.log('MAX STEPS');
+    return;
+  }
+}
+
+function phaseTwo(coefficients, rightHand, pleasures) {
+
 }
 
 function calculateDiet(coefficients, rightHand, pleasures) {
@@ -215,31 +257,31 @@ function calculateDiet(coefficients, rightHand, pleasures) {
     return ['No solution'];
   }
 
-  equalizeInequalities(coefficients);
+  phaseOne([...coefficients], [...rightHand], [...pleasures]);
+  phaseTwo([...coefficients], [...rightHand], [...pleasures]);
 
-  const artificialVariables = checkNegatives(coefficients, rightHand);
-  const table = [];
+  // addSlackVariables(coefficients);
 
-  for (let i = 0; i < coefficients.length; i++) {
-    const currentCoefficients = coefficients[i];
-    const artificialValues = [];
+  // const artificialVariables = checkNegatives(coefficients, rightHand, pleasures);
+  // const table = [];
 
-    for (let a = 0; a < artificialVariables.length; a++) {
-      artificialValues.push(artificialVariables[a][i]);
-    }
+  // for (let i = 0; i < coefficients.length; i++) {
+  //   const currentCoefficients = coefficients[i];
+  //   const artificialValues = [];
 
-    table.push([...currentCoefficients, ...artificialValues, rightHand[i]]);
-  }
+  //   for (let a = 0; a < artificialVariables.length; a++) {
+  //     artificialValues.push(artificialVariables[a][i]);
+  //   }
 
-  table.push([...pleasures.map(v => -v), ...Array(table[0].length - pleasures.length - 2).fill(0), 0, 0]);
+  //   table.push([...currentCoefficients, ...artificialValues, rightHand[i]]);
+  // }
 
-  for (let row = 0; row < table.length; row++) {
-    process.stdout.write(`${table[row].toString()}\n`);
-  }
+  // table.push([...pleasures, ...Array(table[0].length - pleasures.length - 2).fill(0), 0, 0]);
 
   // simplex(table);
 
-  const result = buildResult(pleasures.length, table);
+  // const result = table[table.length - 1].slice(0, pleasures.length);
+  result = [];
 
   return ['Bounded solution', result.map(v => v.toFixed(15)).join(' ')];
 }
