@@ -185,18 +185,19 @@ function identifyPivotRowPrimal(tableau, pivotColumn) {
  * Gets the smallest value last column (which is the same as
  * right hand), dividing values in the column by values in the right hand - for Dual
  */
-function identifyPivotRowDual(rightHand) {
+function identifyPivotRowDual(tableau) {
+  const rightHandIndex = tableau[0].length - 1;
   const pivotRow = {
     value: undefined,
     index: undefined,
   };
 
-  for (let row = 0; row < rightHand.length; row++) {
+  for (let row = 0; row < tableau.length - 1; row++) {
     if (
-      pivotRow.index === undefined
-      || rightHand[row] < 0 && rightHand[row] < pivotRow.value
+      tableau[row][rightHandIndex] < 0
+      || pivotRow.index === undefined && tableau[row][rightHandIndex] < pivotRow.value
     ) {
-      pivotRow.value = rightHand[row];
+      pivotRow.value = tableau[row][rightHandIndex];
       pivotRow.index = row;
     }
   }
@@ -225,13 +226,8 @@ function simplex(tableau) {
 /**
  * Used for the dual function
  */
-function dualSimplex(tableau, rightHand) {
-  if (++stepCount === 5) {
-    console.log('MAX STEPS REACHED');
-    return;
-  }
-
-  const pivotRow = identifyPivotRowDual(rightHand);
+function dualSimplex(tableau) {
+  const pivotRow = identifyPivotRowDual(tableau);
 
   if (pivotRow === undefined) {
     return tableau;
@@ -239,10 +235,14 @@ function dualSimplex(tableau, rightHand) {
 
   const pivotColumn = identifyPivotColumnDual(tableau, pivotRow);
 
+  console.log({ pivotRow, pivotColumn, value: tableau[pivotRow][pivotColumn] });
+
   normalizePivotRow(tableau, pivotRow, pivotColumn);
   normalizePivotColumn(tableau, pivotRow, pivotColumn);
 
-  return dualSimplex(tableau, rightHand);
+  console.log(tableau);
+
+  return dualSimplex(tableau);
 }
 
 function buildTableau(coefficients, rightHand, objectiveFunction) {
@@ -276,9 +276,9 @@ function phaseOne(originalCoefficients, originalRightHand, originalObjectiveFunc
 
   const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
 
-  dualSimplex(tableau, rightHand);
+  console.log(111, tableau);
 
-  console.log('DUAL SIMPLEX TABLEAU', tableau);
+  dualSimplex(tableau);
 
   return tableau[tableau.length - 1].slice(0, objectiveFunction.length);
 }
@@ -313,9 +313,10 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
 
   const tableOne = phaseOne([...coefficients], [...rightHand], [...objectiveFunction]);
   // const tableTwo = phaseTwo([...coefficients], [...rightHand], [...objectiveFunction]);
-
+  // 
   console.log(tableOne);
-  const result = [];
+
+  const result = tableOne;
 
   return ['Bounded solution', ...result.map(v => v.toFixed(15))];
 }
