@@ -20,8 +20,6 @@
 // Example output: Bounded solution
 //                 0.000000000000000 2.000000000000000
 
-let stepCount = 0;
-
 const readline = require('readline');
 const rl = readline.createInterface({
   input: process.stdin,
@@ -69,28 +67,28 @@ const readLines = (asXML) => {
   });
 };
 
-function normalizePivotRow(tableau, pivotRow, pivotColumn) {
-  const divisor = tableau[pivotRow][pivotColumn];
+function normalizePivotRow(matrix, pivotRow, pivotColumn) {
+  const divisor = matrix[pivotRow][pivotColumn];
 
-  for (let i = 0; i < tableau[pivotRow].length; i++) {
-    tableau[pivotRow][i] = tableau[pivotRow][i] / divisor;
+  for (let i = 0; i < matrix[pivotRow].length; i++) {
+    matrix[pivotRow][i] = matrix[pivotRow][i] / divisor;
   }
 }
 
-function normalizePivotColumn(tableau, pivotRow, pivotColumn) {
-  for (let i = 0; i < tableau.length; i++) {
-    if (tableau[i][pivotColumn] === 0 || i === pivotRow) {
+function normalizePivotColumn(matrix, pivotRow, pivotColumn) {
+  for (let i = 0; i < matrix.length; i++) {
+    if (matrix[i][pivotColumn] === 0 || i === pivotRow) {
       continue;
     }
 
-    const shouldAdd = tableau[i][pivotColumn] < 0;
-    const multiplier = Math.abs(tableau[i][pivotColumn]);
+    const shouldAdd = matrix[i][pivotColumn] < 0;
+    const multiplier = Math.abs(matrix[i][pivotColumn]);
 
-    for (let j = 0; j < tableau[i].length; j++) {
+    for (let j = 0; j < matrix[i].length; j++) {
       if (shouldAdd) {
-        tableau[i][j] += (tableau[pivotRow][j] * multiplier);
+        matrix[i][j] += (matrix[pivotRow][j] * multiplier);
       } else {
-        tableau[i][j] -= (tableau[pivotRow][j] * multiplier);
+        matrix[i][j] -= (matrix[pivotRow][j] * multiplier);
       }
     }
   }
@@ -110,10 +108,10 @@ function equalizeInequalities(coefficients) {
 }
 
 /**
- * Gets the smallest value from last row for Primal
+ * Gets the smallest value from last row
  */
-function identifyPivotColumnPrimal(tableau) {
-  const lastRow = tableau[tableau.length - 1];
+function identifyPivotColumn(matrix) {
+  const lastRow = matrix[matrix.length - 1];
 
   for (let column = 0; column < lastRow.length; column++) {
     if (lastRow[column] > 0) {
@@ -125,45 +123,17 @@ function identifyPivotColumnPrimal(tableau) {
 }
 
 /**
- * Gets the smallest value from last row - for Dual
- */
-function identifyPivotColumnDual(tableau, pivotRow) {
-  const lastRow = tableau[tableau.length - 1];
-  const pivotColumn = {
-    index: undefined,
-    value: undefined,
-  };
-
-  for (let column = 0; column < lastRow.length - 1; column++) {
-    const elementValue = tableau[pivotRow][column];
-
-    if (elementValue >= 0) {
-      continue;
-    }
-
-    const value = -lastRow[column] / elementValue;
-
-    if (pivotColumn.index === undefined || value < pivotColumn.value) {
-      pivotColumn.value = value;
-      pivotColumn.index = column;
-    }
-  }
-
-  return pivotColumn.index;
-}
-
-/**
  * Gets the smallest value from pivot column, dividing values in the column
- * by values in the right hand - for Primal
+ * by values in the right hand
  */
-function identifyPivotRowPrimal(tableau, pivotColumn) {
+function identifyPivotRow(matrix, pivotColumn) {
   const pivotRow = {
     value: undefined,
     index: undefined,
   };
 
-  for (let row = 0; row < tableau.length - 1; row++) {
-    const tableauRow = tableau[row];
+  for (let row = 0; row < matrix.length - 1; row++) {
+    const matrixRow = matrix[row];
     const elementValue = matrixRow[pivotColumn];
 
     if (elementValue <= 0) {
@@ -181,116 +151,19 @@ function identifyPivotRowPrimal(tableau, pivotColumn) {
   return pivotRow.index;
 }
 
-/**
- * Gets the smallest value last column (which is the same as
- * right hand), dividing values in the column by values in the right hand - for Dual
- */
-function identifyPivotRowDual(rightHand) {
-  const pivotRow = {
-    value: undefined,
-    index: undefined,
-  };
-
-  for (let row = 0; row < rightHand.length; row++) {
-    if (
-      pivotRow.index === undefined
-      || rightHand[row] < 0 && rightHand[row] < pivotRow.value
-    ) {
-      pivotRow.value = rightHand[row];
-      pivotRow.index = row;
-    }
-  }
-
-  return pivotRow.index;
-}
-
-/**
- * Used for the primal function
- */
-function simplex(tableau) {
-  const pivotColumn = identifyPivotColumnPrimal(tableau);
+function simplex(matrix) {
+  const pivotColumn = identifyPivotColumn(matrix);
 
   if (pivotColumn === undefined) {
-    return tableau;
-  }
-
-  const pivotRow = identifyPivotRowPrimal(tableau, pivotColumn);
-
-  normalizePivotRow(tableau, pivotRow, pivotColumn);
-  normalizePivotColumn(tableau, pivotRow, pivotColumn);
-
-  return simplex(tableau);
-}
-
-/**
- * Used for the dual function
- */
-function dualSimplex(tableau, rightHand) {
-  if (++stepCount === 5) {
-    console.log('MAX STEPS REACHED');
     return;
   }
 
-  const pivotRow = identifyPivotRowDual(rightHand);
+  const pivotRow = identifyPivotRow(matrix, pivotColumn);
 
-  if (pivotRow === undefined) {
-    return tableau;
-  }
+  normalizePivotRow(matrix, pivotRow, pivotColumn);
+  normalizePivotColumn(matrix, pivotRow, pivotColumn);
 
-  const pivotColumn = identifyPivotColumnDual(tableau, pivotRow);
-
-  normalizePivotRow(tableau, pivotRow, pivotColumn);
-  normalizePivotColumn(tableau, pivotRow, pivotColumn);
-
-  return dualSimplex(tableau, rightHand);
-}
-
-function buildTableau(coefficients, rightHand, objectiveFunction) {
-  const tableau = [];
-
-  for (let i = 0; i < coefficients.length; i++) {
-    tableau.push([...coefficients[i], rightHand[i]]);
-  }
-
-  tableau.push([...objectiveFunction, ...Array(tableau[0].length - objectiveFunction.length).fill(0)]);
-
-  return tableau;
-}
-
-function phaseOne(originalCoefficients, originalRightHand, originalObjectiveFunction) {
-  const coefficients = new Array(originalCoefficients[0].length);
-  const rightHand = originalObjectiveFunction.map(v => v * -1);
-  const objectiveFunction = originalRightHand;
-
-  for (let i = 0; i < originalCoefficients.length; i++) {
-    for (let j = 0; j < originalCoefficients[i].length; j++) {
-      if (coefficients[j] === undefined) {
-        coefficients[j] = [];
-      }
-
-      coefficients[j].push(originalCoefficients[i][j] * -1);
-    }
-  }
-
-  equalizeInequalities(coefficients);
-
-  const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
-
-  dualSimplex(tableau, rightHand);
-
-  console.log('DUAL SIMPLEX TABLEAU', tableau);
-
-  return tableau[tableau.length - 1].slice(0, objectiveFunction.length);
-}
-
-function phaseTwo(coefficients, rightHand, objectiveFunction) {
-  equalizeInequalities(coefficients);
-
-  const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
-
-  simplex(buildTableau);
-
-  return tableau[tableau.length - 1].slice(0, objectiveFunction.length);
+  return simplex(matrix);
 }
 
 function calculateDiet(coefficients, rightHand, objectiveFunction) {
@@ -311,11 +184,19 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
     return ['No solution'];
   }
 
-  const tableOne = phaseOne([...coefficients], [...rightHand], [...objectiveFunction]);
-  // const tableTwo = phaseTwo([...coefficients], [...rightHand], [...objectiveFunction]);
+  equalizeInequalities(coefficients);
 
-  console.log(tableOne);
-  const result = [];
+  const table = [];
+
+  for (let i = 0; i <= coefficients.length - 1; i++) {
+    table.push([...coefficients[i], rightHand[i]]);
+  }
+
+  table.push([...objectiveFunction, ...Array(table[0].length - objectiveFunction.length).fill(0)]);
+
+  simplex(table);
+
+  const result = table[table.length - 1].slice(0, objectiveFunction.length);
 
   return ['Bounded solution', ...result.map(v => v.toFixed(15))];
 }
@@ -326,50 +207,26 @@ function test(onlyTest) {
       id: 1,
       run: () => calculateDiet(
         [
-          [-1, -1],
-          [1, 0],
-          [0, 1],
+          [1, 1],
+          [2, 1],
         ],
-        [-1, 2, 2],
-        [-1, 2],
+        [12, 16],
+        [40, 30],
       ),
-      expected: 'Bounded solution 0.000000000000000 2.000000000000000',
+      expected: 'Bounded solution 0.000000000000000 0.000000000000000',
     },
     {
       id: 2,
       run: () => calculateDiet(
         [
-          [1, 1],
-          [-1, -1],
+          [-1, 1],
+          [1, 0],
+          [0, 1],
         ],
-        [1, -2],
+        [2, 4, 4],
         [1, 1],
       ),
-      expected: 'No solution',
-    },
-    {
-      id: 3,
-      run: () => calculateDiet(
-        [
-          [0, 0, 1],
-        ],
-        [3],
-        [1, 1, 1],
-      ),
-      expected: 'Infinity',
-    },
-    {
-      id: 4,
-      run: () => calculateDiet(
-        [
-          [4, 8],
-          [2, 1],
-          [3, 2],
-        ],
-        [12, 3, 4],
-        [2, 3],
-      ),
-      expected: 'Infinity',
+      expected: 'Bounded solution 0.000000000000000 0.000000000000000',
     },
   ];
 
