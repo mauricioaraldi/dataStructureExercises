@@ -103,41 +103,9 @@ function toPrecision(number) {
   return Number(strNumber.slice(0, decimalPointIndex + 7)).toFixed(6);
 }
 
-function addArtificialVariables(coefficients, objectiveFunction, variableTypes) {
+function equalizeInequalities(coefficients) {
   for (let i = 0; i < coefficients.length; i++) {
     coefficients[i].push(...Array(i).fill(0), 1, ...Array(coefficients.length - i - 1).fill(0));
-    objectiveFunction.push(0);
-    variableTypes.push(0);
-  }
-}
-
-function addExcessVariables(coefficients, rightHand, objectiveFunction, variableTypes) {
-  for (let i = 0; i < coefficients.length; i++) {
-    if (rightHand[i] >= 0) {
-      continue;
-    }
-
-    //If rigth hand is less than 0, invert all signals and add one excess variable
-    //that will be -1 after all coefficients are multiplied by -1
-
-    coefficients[i].push(1);
-
-    for (let j = 0; j < coefficients[i].length; j++) {
-      coefficients[i][j] *= -1;
-    }
-
-    rightHand[i] *= -1;
-    objectiveFunction.push(0);
-    variableTypes.push(1);
-
-    //Add 0s to other lines in the column
-    for (let j = 0; j < coefficients.length; j++) {
-      if (j === i) {
-        continue;
-      }
-
-      coefficients[j].push(0);
-    }
   }
 }
 
@@ -289,33 +257,30 @@ function buildTableau(coefficients, rightHand, objectiveFunction) {
   return tableau;
 }
 
-function buildTableauPhaseOne(coefficients, rightHand, objectiveFunction, variableTypes) {
-  const tableau = [];
+function phaseOne(originalCoefficients, originalRightHand, originalObjectiveFunction) {
+  const coefficients = new Array(originalCoefficients[0].length);
+  const rightHand = originalObjectiveFunction.map(v => v * -1);
+  const objectiveFunction = originalRightHand;
 
-  //Cb, P0, objectiveFunction
-  tableau.push([null, null, ...objectiveFunction]);
+  for (let i = 0; i < originalCoefficients.length; i++) {
+    for (let j = 0; j < originalCoefficients[i].length; j++) {
+      if (coefficients[j] === undefined) {
+        coefficients[j] = [];
+      }
 
-  for (let i = 0; i < coefficients.length; i++) {
-    tableau.push([0, rightHand[i], ...coefficients[i]]);
+      coefficients[j].push(originalCoefficients[i][j] * -1);
+    }
   }
 
-  tableau.push([null, ...variableTypes]);
+  equalizeInequalities(coefficients);
 
-  return tableau;
-}
+  const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
 
-function phaseOne(coefficients, rightHand, objectiveFunction, variableTypes) {
-  for (let i = 0; i < objectiveFunction.length; i++) {
-    objectiveFunction[i] = 0;
-  }
+  console.log(111, tableau);
 
-  const tableau = buildTableauPhaseOne(coefficients, rightHand, objectiveFunction, variableTypes);
+  dualSimplex(tableau);
 
-  console.log(JSON.stringify(tableau));
-
-  // dualSimplex(tableau);
-
-  // return tableau[tableau.length - 1].slice(0, objectiveFunction.length);
+  return tableau[tableau.length - 1].slice(0, objectiveFunction.length);
 }
 
 function phaseTwo(coefficients, rightHand, objectiveFunction) {
@@ -326,20 +291,6 @@ function phaseTwo(coefficients, rightHand, objectiveFunction) {
   simplex(buildTableau);
 
   return tableau[tableau.length - 1].slice(0, objectiveFunction.length);
-}
-
-function equalizeFormulation(coefficients, rightHand, objectiveFunction) {
-  const variableTypes = [...Array(coefficients.length).fill(-1)];
-
-  addExcessVariables(coefficients, rightHand, objectiveFunction, variableTypes);
-  addArtificialVariables(coefficients, objectiveFunction, variableTypes);
-
-  return {
-    coefficients,
-    rightHand,
-    objectiveFunction,
-    variableTypes,
-  };
 }
 
 function calculateDiet(coefficients, rightHand, objectiveFunction) {
@@ -360,20 +311,12 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
     return ['No solution'];
   }
 
-  const equalizedFormulation = equalizeFormulation([...coefficients], [...rightHand], [...objectiveFunction]);
-
-  const tableOne = phaseOne(
-    [...equalizedFormulation.coefficients],
-    [...equalizedFormulation.rightHand],
-    [...equalizedFormulation.objectiveFunction],
-    [...equalizedFormulation.variableTypes]
-  );
-
+  const tableOne = phaseOne([...coefficients], [...rightHand], [...objectiveFunction]);
   // const tableTwo = phaseTwo([...coefficients], [...rightHand], [...objectiveFunction]);
   // 
-  console.log(equalizedFormulation);
+  console.log(tableOne);
 
-  const result = equalizedFormulation;
+  const result = tableOne;
 
   return ['Bounded solution', ...result.map(v => v.toFixed(15))];
 }
