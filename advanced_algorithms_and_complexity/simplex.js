@@ -67,103 +67,158 @@ const readLines = (asXML) => {
   });
 };
 
-function normalizePivotRow(matrix, pivotRow, pivotColumn) {
-  const divisor = matrix[pivotRow][pivotColumn];
+function buildTableau(coefficients, rightHand, objectiveFunction) {
+  const tableau = [];
 
-  for (let i = 0; i < matrix[pivotRow].length; i++) {
-    matrix[pivotRow][i] = matrix[pivotRow][i] / divisor;
+  tableau[0] = [
+    1,
+    ...objectiveFunction.map(v => v * -1),
+    ...new Array(coefficients.length + 1).fill(0),
+  ];
+
+  for (let i = 1; i < tableau.length; i++) {
+    tableau[i] = new Array(objectiveFunction.length + coefficients.length + 2);
   }
+
+  //add slack variables
+  for (let i = 0; i < coefficients.length; i++) {
+    tableau.push([
+      0,
+      ...coefficients[i],
+      ...new Array(i).fill(0),
+      1,
+      ...new Array(coefficients.length - i - 1).fill(0),
+      rightHand[i]
+    ]);
+
+    if (rightHand[i] < 0) {
+      tableau[tableau.length - 1] = tableau[tableau.length - 1].map(v => v * -1);
+    }
+  }
+
+  return tableau;
 }
 
-function normalizePivotColumn(matrix, pivotRow, pivotColumn) {
-  for (let i = 0; i < matrix.length; i++) {
-    if (matrix[i][pivotColumn] === 0 || i === pivotRow) {
-      continue;
+function initializeVariablesTracker(restrictionsQt, itemsQt) {
+  let columnVars = new Array(itemsQt + 1);
+  let rowVars = new Array(restrictionsQt + itemsQt + 2);
+
+  columnVars[0] = 'c';
+
+  for (let i = 0; i < itemsQt; i++) {
+    columnVars[i + 1] = 's' + (i + 1);
+  }
+
+  rowVars[0] = 'z';
+
+  for (let i = 0; i < restrictionsQt; i++) {
+    rowVars[i + 1] = 'x' + (i+1);
+  }
+
+  for (let i = 0; i < itemsQt; i++) {
+    rowVars[restrictionsQt + i + 1] = 's' + (i + 1);
+  }
+
+  rowVars[restrictionsQt + itemsQt + 1] = 'b';
+
+  return { columnVars, rowVars };
+}
+
+function hasNegative(tableau) {
+  for (let i = 0; i < tableau[0].length; i++) {
+    if (tableau[0][i] < 0) {
+      return true;
     }
+  }
 
-    const shouldAdd = matrix[i][pivotColumn] < 0;
-    const multiplier = Math.abs(matrix[i][pivotColumn]);
+  return false;
+}
 
-    for (let j = 0; j < matrix[i].length; j++) {
-      if (shouldAdd) {
-        matrix[i][j] += (matrix[pivotRow][j] * multiplier);
-      } else {
-        matrix[i][j] -= (matrix[pivotRow][j] * multiplier);
+function getPivotColumn(tableau) {
+  let pivotColumn = 0;
+  let min = Number.MAX_VALUE;
+
+  for (let i = 0; i < tableau[0].length; i++) {
+    if (tableau[0][i] < min) {
+      pivotColumn = i;
+      min = tableau[0][i];
+    }
+  }
+
+  return pivotColumn;
+}
+
+function swapRows(tableau, pivotColumn, minIndex) {
+  let pivotValue = tableau[minIndex][pivotColumn];
+
+  for (let i = 0; i < tableau[0].length; i++) {
+    tableau[minIndex][i] = tableau[minIndex][i] / pivotValue;
+  }
+
+  for (let i = 0; i < tableau.length; i++) {
+    if (i != minIndex) {
+      let multiplier = -tableau[i][pivotColumn];
+
+      for (let j = 0; j < tableau[0].length; j++) {
+        tableau[i][j] = multiplier * tableau[minIndex][j] + tableau[i][j];
       }
     }
   }
 }
 
-function toPrecision(number) {
-  const strNumber = number.toString();
-  const decimalPointIndex = strNumber.indexOf('.');
+function simplex(tableau, columnVars, rowVars) {
+  let counter = 1;
 
-  return Number(strNumber.slice(0, decimalPointIndex + 7)).toFixed(6);
-}
+  while (hasNegative(tableau)) {
+    const pivotColumn = getPivotColumn(tableau);
+    let minRatio = Number.MAX_VALUE;
+    let minIndex = 0;
+    let hasPositiveValue = false;
 
-function equalizeInequalities(coefficients) {
-  for (let i = 0; i < coefficients.length; i++) {
-    coefficients[i].push(...Array(i).fill(0), 1, ...Array(coefficients.length - i - 1).fill(0));
-  }
-}
+    for (let i = 1; i < tableau.length; i++) {
+      if (tableau[i][pivotColumn] > 0) {
+        hasPositiveValue = true;
+        let ratio = tableau[i][tableau[0].length - 1] / tableau[i][pivotColumn];
 
-/**
- * Gets the smallest value from last row
- */
-function identifyPivotColumn(matrix) {
-  const lastRow = matrix[matrix.length - 1];
+        if (ratio < minRatio) {
+          minRatio = ratio;
+          minIndex = i;
+        }
+      }
+    }
 
-  for (let column = 0; column < lastRow.length; column++) {
-    if (lastRow[column] > 0) {
-      return column;
+    if (!hasPositiveValue) {
+      return null
+    } else {
+      columnVars[minIndex] = rowVars[pivotColumn];
+      swapRows(tableau, pivotColumn, minIndex);
+      counter++;
     }
   }
 
-  return undefined;
+  return true;
 }
 
-/**
- * Gets the smallest value from pivot column, dividing values in the column
- * by values in the right hand
- */
-function identifyPivotRow(matrix, pivotColumn) {
-  const pivotRow = {
-    value: undefined,
-    index: undefined,
-  };
+function getResults(tableau, objectiveFunctionSize, columnVars, rowVars) {
+  const result = [];
 
-  for (let row = 0; row < matrix.length - 1; row++) {
-    const matrixRow = matrix[row];
-    const elementValue = matrixRow[pivotColumn];
+  for (let i = 0; i < objectiveFunctionSize; i++) {
+    let hasValue = false;
 
-    if (elementValue <= 0) {
-      continue;
+    for (let j = 1; j < columnVars.length; j++) {
+      if (rowVars[i + 1] === columnVars[j]) {
+        result.push(tableau[j][tableau[0].length-1]);
+        hasValue = true;
+        break;
+      }
     }
 
-    const value = matrixRow[matrixRow.length - 1] / elementValue;
-
-    if (pivotRow.index === undefined || value < pivotRow.value) {
-      pivotRow.value = value;
-      pivotRow.index = row;
+    if (!hasValue) {
+      result.push(0);
     }
   }
 
-  return pivotRow.index;
-}
-
-function simplex(matrix) {
-  const pivotColumn = identifyPivotColumn(matrix);
-
-  if (pivotColumn === undefined) {
-    return;
-  }
-
-  const pivotRow = identifyPivotRow(matrix, pivotColumn);
-
-  normalizePivotRow(matrix, pivotRow, pivotColumn);
-  normalizePivotColumn(matrix, pivotRow, pivotColumn);
-
-  return simplex(matrix);
+  return result;
 }
 
 function calculateDiet(coefficients, rightHand, objectiveFunction) {
@@ -184,21 +239,16 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
     return ['No solution'];
   }
 
-  equalizeInequalities(coefficients);
+  const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
+  const { columnVars, rowVars } = initializeVariablesTracker(coefficients[0].length, coefficients.length);
 
-  const table = [];
-
-  for (let i = 0; i <= coefficients.length - 1; i++) {
-    table.push([...coefficients[i], rightHand[i]]);
+  if (!simplex(tableau, columnVars, rowVars)) {
+    return 'Infinity';
   }
 
-  table.push([...objectiveFunction, ...Array(table[0].length - objectiveFunction.length).fill(0)]);
+  const results = getResults(tableau, objectiveFunction.length, columnVars, rowVars);
 
-  simplex(table);
-
-  const result = table[table.length - 1].slice(0, objectiveFunction.length);
-
-  return ['Bounded solution', ...result.map(v => v.toFixed(15))];
+  return ['Bounded solution', ...results.map(v => v.toFixed(15))].join(' ');
 }
 
 function test(onlyTest) {
@@ -207,26 +257,50 @@ function test(onlyTest) {
       id: 1,
       run: () => calculateDiet(
         [
-          [1, 1],
-          [2, 1],
+          [-1, -1],
+          [1, 0],
+          [0, 1],
         ],
-        [12, 16],
-        [40, 30],
+        [-1, 2, 2],
+        [-1, 2],
       ),
-      expected: 'Bounded solution 0.000000000000000 0.000000000000000',
+      expected: 'Bounded solution 0.000000000000000 2.000000000000000',
     },
     {
       id: 2,
       run: () => calculateDiet(
         [
-          [-1, 1],
-          [1, 0],
-          [0, 1],
+          [1, 1],
+          [-1, -1],
         ],
-        [2, 4, 4],
+        [1, -2],
         [1, 1],
       ),
-      expected: 'Bounded solution 0.000000000000000 0.000000000000000',
+      expected: 'No solution',
+    },
+    {
+      id: 3,
+      run: () => calculateDiet(
+        [
+          [0, 0, 1],
+        ],
+        [3],
+        [1, 1, 1],
+      ),
+      expected: 'Infinity',
+    },
+    {
+      id: 4,
+      run: () => calculateDiet(
+        [
+          [4, 8],
+          [2, 1],
+          [3, 2],
+        ],
+        [12, 3, 4],
+        [2, 3],
+      ),
+      expected: 'Infinity',
     },
   ];
 
@@ -242,7 +316,7 @@ function test(onlyTest) {
   testCases.forEach(testCase => {
     const result = testCase.run();
 
-    if (result.join(' ') === testCase.expected) {
+    if (result === testCase.expected) {
       console.log(`[V] Passed test ${testCase.id}`);
     } else {
       console.log(`[X] Failed test ${testCase.id}`);
