@@ -2,7 +2,7 @@
 // Next n + 1 lines coefficients of inequalities (form Ax <= b, where x = amount is the vector of
 // length m with amounts of each ingredient, A is the n x m matrix with coefficients of inequalities and
 // b is the vector with the right-hand side of each inequality). Specifically, the next n lines contains
-// m integers Ai1, 𝐴i2, ... and the next line after those n contains n integers b1, b2, ... .These
+// m integers Ai1, Ai2, ... and the next line after those n contains n integers b1, b2, ... .These
 // lines describe n inequalities of the form Ai1 x amount1 + Ai2 x amount2 + ... x amountm <= bi. The
 // last line of the input contains m integers - the pleasure for consuming one item of each dish and drink
 // pleasure1, pleasure2, ... .

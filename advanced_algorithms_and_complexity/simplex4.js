@@ -73,91 +73,57 @@ function buildTableau(coefficients, rightHand, objectiveFunction) {
   tableau[0] = [
     1,
     ...objectiveFunction.map(v => v * -1),
-    ...new Array(coefficients.length).fill(0),
+    ...new Array(coefficients.length + 1).fill(0),
   ];
 
   for (let i = 1; i < tableau.length; i++) {
     tableau[i] = new Array(objectiveFunction.length + coefficients.length + 2);
   }
 
-  objectiveFunction.push(...new Array(coefficients.length).fill(0));
-
-  const artificialVariables = [];
-
   for (let i = 0; i < coefficients.length; i++) {
-    let newRow = [
+    const newRow = [
       0,
       ...coefficients[i],
       ...new Array(i).fill(0),
       1,
       ...new Array(coefficients.length - i - 1).fill(0),
+      rightHand[i]
     ];
 
     if (rightHand[i] < 0) {
-      const artificialColumn = new Array(coefficients.length + 1).fill(0);
-
-      newRow[0] = Number.NEGATIVE_INFINITY;
-      objectiveFunction.push(Number.NEGATIVE_INFINITY);
-      artificialColumn[i + 1] = -1;
-
-      artificialVariables.push(artificialColumn);
+      tableau.push(newRow.map(v => v * -1));
+      continue;
     }
 
     tableau.push(newRow);
   }
 
-  for (let j = 0; j < artificialVariables.length; j++) {
-    for (let i = 0; i < artificialVariables[j].length; i++) {
-      tableau[i].push(artificialVariables[j][i]);
-    }
-  }
-
-  tableau[0].push(0);
-
-  for (let i = 0; i < rightHand.length; i++) {
-    tableau[i + 1].push(rightHand[i]);
-
-    if (rightHand[i] < 0) {
-      tableau[i + 1] = [tableau[i + 1][i], ...tableau[i + 1].slice(1).map(v => v * -1)];
-    }
-  }
-
   return tableau;
 }
 
-function initializeVariablesTracker(restrictionsQt, itemsQt, rightHand) {
-  let usedVars = [];
-  let allVars = [];
+function initializeVariablesTracker(restrictionsQt, itemsQt) {
+  let usedVars = new Array(itemsQt + 1);
+  let allVars = new Array(restrictionsQt + itemsQt + 2);
 
-  usedVars.push('c');
+  usedVars[0] = 'c';
 
   for (let i = 0; i < itemsQt; i++) {
-    usedVars.push(`s${i + 1}`);
+    usedVars[i + 1] = 's' + (i + 1);
   }
 
-  allVars.push('z');
+  allVars[0] = 'z';
 
   for (let i = 0; i < restrictionsQt; i++) {
-    allVars.push(`x${i+1}`);
+    allVars[i + 1] = 'x' + (i+1);
   }
 
   for (let i = 0; i < itemsQt; i++) {
-    allVars.push(`s${i + 1}`);
+    allVars[restrictionsQt + i + 1] = 's' + (i + 1);
   }
 
-  for (let i = 0; i < rightHand.length; i++) {
-    if (rightHand[i] < 0) {
-      allVars.push(`a${i + 1}`);
-    }
-  }
+  allVars[restrictionsQt + itemsQt + 1] = 'b';
 
-  allVars.push('b');
-
-  return {
-    allVars,
-    usedVars, 
-    mVars: new Array(allVars.length).fill(0),
-  };
+  return { usedVars, allVars };
 }
 
 function hasNegative(tableau) {
@@ -170,15 +136,30 @@ function hasNegative(tableau) {
   return false;
 }
 
-// Selection of entering variable, min of first row (Cj - zj)
-function getPivotColumn(tableau) {
+// For pseudo-pivot
+function getInvertedPivotColumn(tableau) {
   let pivotColumn = 0;
-  let min = Number.POSITIVE_INFINITY;
+  let max = Number.NEGATIVE_INFINITY;
 
   for (let i = 1; i < tableau[0].length - 1; i++) {
-    if (tableau[0][i] < min) {
+    if (tableau[0][i] > max) {
       pivotColumn = i;
-      min = tableau[0][i];
+      max = tableau[0][i];
+    }
+  }
+
+  return pivotColumn;
+}
+
+// Selection of entering variable, max of first row (Cj - zj)
+function getPivotColumn(tableau) {
+  let pivotColumn = 0;
+  let max = Number.POSITIVE_INFINITY;
+
+  for (let i = 0; i < tableau[0].length - 1; i++) {
+    if (tableau[0][i] < max) {
+      pivotColumn = i;
+      max = tableau[0][i];
     }
   }
 
@@ -212,55 +193,104 @@ function pivotNormalization(tableau, pivotColumn, pivotRow) {
   return newTableau;
 }
 
-function calculateZRow(tableau, objectiveFunction, allVars, mVars) {
-  for (let j = 1; j <= 1; j++) {
-  // for (let j = 1; j < tableau[0].length; j++) {
-    const columnVar = allVars[j];
-    const varValue = objectiveFunction[j - 1];
-    let zValue = 0;
+function pad(text, width = 0, placeholder = ' ') {
+  return `${text}`.length >= width ? text : new Array(width - `${text}`.length + 1).join(placeholder) + text;
+}
 
-    for (let i = 1; i < tableau.length; i++) {
-      const cellValue = tableau[i][j];
-      let baseValue = tableau[i][0];
+function printTable(tableau, allVars, usedVars) {
+  console.log(allVars.map(v => '=========').join('').slice(allVars.length - 4));
+  console.log(`   [${allVars.map(v => pad(v, 7)).join('|')}]`);
+  console.log(`   [${allVars.map(v => '--------').join('').slice(1)}]`);
 
-      if (baseValue === Number.NEGATIVE_INFINITY) {
-        mVars[j]--;
-        baseValue = 1;
-      } else if (baseValue === Number.POSITIVE_INFINITY) {
-        mVars[j]++;
-        baseValue = 1;
-      }
+  for (let i = 0; i < tableau.length; i++) {
+    console.log(`${pad(usedVars[i], 2)} [${tableau[i].map(v => pad(v, 7)).join('|')}]`);
+  }
 
-      zValue += baseValue * cellValue;
+  console.log(allVars.map(v => '=========').join('').slice(allVars.length - 4));
+}
+
+function checkSolvability(coefficients, rightHand, objectiveFunction) {
+  const newObjectiveFunction = new Array(objectiveFunction.length).fill(0);
+  newObjectiveFunction.push(-1);
+
+  const newCoefficients = coefficients.map(coefficient => [...coefficient, -1]);
+
+  // make pseudo-pivot
+  let tableau = buildTableau(newCoefficients, rightHand, newObjectiveFunction);
+
+  const { usedVars, allVars } = initializeVariablesTracker(newCoefficients[0].length, newCoefficients.length);
+
+  printTable(tableau, allVars, usedVars);
+
+  const pivotColumn = getInvertedPivotColumn(tableau);
+  let maxRatio = Number.NEGATIVE_INFINITY;
+  let pivotRow = undefined;
+
+  for (let i = 1; i < tableau.length; i++) {
+    if (tableau[i][pivotColumn] <= 0) {
+      continue;
     }
 
-    console.log(j, zValue, varValue);
+    const ratio = tableau[i][tableau[i].length - 1] / tableau[i][pivotColumn];
 
-    if (varValue === Number.NEGATIVE_INFINITY) {
-      mVars[j]--;
-    } else if (varValue === Number.POSITIVE_INFINITY) {
-      mVars[j]++;
+    if (ratio > maxRatio) {
+      maxRatio = ratio;
+      pivotRow = i;
+    }
+  }
+
+  if (!pivotRow) {
+    return ['Infinity'];
+  }
+
+  // console.log(`PSEUDO-OUT: ${usedVars[pivotRow]}. PSEUDO-IN: ${allVars[pivotColumn]}`);
+
+  usedVars[pivotRow] = allVars[pivotColumn];
+
+  tableau = pivotNormalization(tableau, pivotColumn, pivotRow);
+  calculateBaseVariables(tableau, newObjectiveFunction, usedVars, allVars);
+
+  printTable(tableau, allVars, usedVars);
+
+  const tableauResult = simplex(tableau, newObjectiveFunction, usedVars, allVars);
+
+  printTable(tableauResult.tableau, allVars, usedVars);
+
+  for (let i = 1; i < tableauResult.tableau[0].length; i++) {
+    if (tableauResult.tableau[0][i] < 0) {
+      return ['No solution'];
+    }
+  }
+
+  return true;
+}
+
+function calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars) {
+  // Base column
+  for (let i = 1; i < tableau.length; i++) {
+    if (usedVars[i].indexOf('x') === -1) {
+      tableau[i][0] = 0;
     } else {
-      zValue -= varValue;
+      const xIndex = parseInt(usedVars[i].slice(1), 10);
+      tableau[i][0] = objectiveFunction[xIndex - 1];
+    }
+  }
+
+  // Z row
+  for (let j = 1; j < tableau[0].length; j++) {
+    const columnVar = allVars[j];
+    const varValue = j <= objectiveFunction.length ? objectiveFunction[j - 1] : 0;
+    let zValue = -varValue;
+
+    for (let i = 1; i < tableau.length; i++) {
+      zValue += tableau[i][0] * tableau[i][j]
     }
 
     tableau[0][j] = zValue;
   }
 }
 
-function calculateBaseColumn(tableau, objectiveFunction, usedVars, allVars) {
-  for (let i = 1; i < tableau.length; i++) {
-    const allVarsIndex = allVars.findIndex(v => v === usedVars[i]);
-    tableau[i][0] = objectiveFunction[allVarsIndex];
-  }
-}
-
-function calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars) {
-  calculateBaseColumn(tableau, objectiveFunction, usedVars, allVars);
-  calculateZRow(tableau, objectiveFunction, allVars, mVars);
-}
-
-function simplex(tableau, objectiveFunction, usedVars, allVars, mVars) {
+function simplex(tableau, objectiveFunction, usedVars, allVars) {
   while (hasNegative(tableau)) {
     const pivotColumn = getPivotColumn(tableau);
     let minRatio = Number.POSITIVE_INFINITY;
@@ -280,22 +310,28 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars) {
     }
 
     if (!pivotRow) {
-      return 1;
+      return {
+        tableau,
+        noPivot: true
+      };
     }
 
     console.log(`OUT: ${usedVars[pivotRow]}. IN: ${allVars[pivotColumn]}`);
 
     if (usedVars[pivotRow] === allVars[pivotColumn]) {
-      return 2;
+      return {
+        tableau,
+        looping: true
+      };
     }
 
     usedVars[pivotRow] = allVars[pivotColumn];
 
     tableau = pivotNormalization(tableau, pivotColumn, pivotRow);
-    calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars);
+    calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars);
   }
 
-  return tableau;
+  return { tableau };
 }
 
 function getResult(tableau, usedVars, allVars) {
@@ -336,26 +372,6 @@ function getResult(tableau, usedVars, allVars) {
   };
 }
 
-function pad(text, width = 0, placeholder = ' ') {
-  return `${text}`.length >= width ? text : new Array(width - `${text}`.length + 1).join(placeholder) + text;
-}
-
-function printTable(tableau, allVars, usedVars, mVars) {
-  console.log(allVars.map(v => '=========').join('').slice(allVars.length - 4));
-  console.log(`   [${allVars.map(v => pad(v, 7, ' ')).join('|')}]`);
-  console.log(`   [${allVars.map(v => '--------').join('').slice(1)}]`);
-
-  for (let i = 0; i < tableau.length; i++) {
-    if (i === 0) {
-      const getMVar = j => mVars[j] !== 0 ? `${mVars[j]}M` : '';
-      console.log(`${pad(usedVars[i], 2, ' ')} [${tableau[i].map((v, j) => `${pad(getMVar(j) + (getMVar(j) && v >= 0 ? '+' : '') + v, 7, ' ')}`).join('|')}]`);
-    } else {
-      console.log(`${pad(usedVars[i], 2, ' ')} [${tableau[i].map(v => pad(v, 7, ' ')).join('|')}]`);
-    }
-  }
-  console.log(allVars.map(v => '=========').join('').slice(allVars.length - 4));
-}
-
 function calculateDiet(coefficients, rightHand, objectiveFunction) {
   if (!coefficients || !coefficients.length) {
     console.error("Invalid input: No coefficients");
@@ -374,29 +390,29 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
     return ['No solution'];
   }
 
-  let tableau = buildTableau(coefficients, rightHand, objectiveFunction);
+  const solvabilityResult = checkSolvability(coefficients, rightHand, objectiveFunction);
+
+  if (solvabilityResult !== true) {
+    return solvabilityResult;
+  }
+
+  console.log(12321312);
+
+  const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
 
   // usedVars = rowVars = basicVars
   // allVars = columnVars = baseVars
-  const { allVars, usedVars, mVars } = initializeVariablesTracker(coefficients[0].length, coefficients.length, rightHand);
+  const { usedVars, allVars } = initializeVariablesTracker(coefficients[0].length, coefficients.length);
 
-  console.log('INITIAL');
-  printTable(tableau, allVars, usedVars, mVars);
+  const tableauResult = simplex(tableau, objectiveFunction, usedVars, allVars)
 
-  calculateZRow(tableau, objectiveFunction, allVars, mVars);
-
-  console.log('INITIAL CALCULATED');
-  printTable(tableau, allVars, usedVars, mVars);
-
-  tableau = simplex(tableau, objectiveFunction, usedVars, allVars, mVars);
-
-  if (tableau === 1) {
+  if (tableauResult.noPivot) {
     return ['Infinity'];
-  } else if (tableau === 2) {
+  } else if (tableauResult.looping) {
     return ['No solution'];
   }
 
-  const { result, variablesEndValues, variablesBaseValues } = getResult(tableau, usedVars, allVars);
+  const { result, variablesEndValues, variablesBaseValues } = getResult(tableauResult.tableau, usedVars, allVars);
 
   return ['Bounded solution', result.map(v => v.toFixed(15)).join(' ')];
 }
