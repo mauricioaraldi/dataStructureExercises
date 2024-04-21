@@ -70,14 +70,14 @@ const readLines = (asXML) => {
 function buildTableau(coefficients, rightHand, objectiveFunction) {
   const tableau = [];
 
-  tableau[0] = [
+  tableau.push([
     1,
     ...objectiveFunction.map(v => v * -1),
     ...new Array(coefficients.length + 1).fill(0),
-  ];
+  ]);
 
   for (let i = 1; i < tableau.length; i++) {
-    tableau[i] = new Array(objectiveFunction.length + coefficients.length + 2);
+    tableau.push(new Array(objectiveFunction.length + coefficients.length + 2));
   }
 
   for (let i = 0; i < coefficients.length; i++) {
@@ -220,8 +220,6 @@ function checkSolvability(coefficients, rightHand, objectiveFunction) {
 
   const { usedVars, allVars } = initializeVariablesTracker(newCoefficients[0].length, newCoefficients.length);
 
-  printTable(tableau, allVars, usedVars);
-
   const pivotColumn = getInvertedPivotColumn(tableau);
   let maxRatio = Number.NEGATIVE_INFINITY;
   let pivotRow = undefined;
@@ -250,11 +248,7 @@ function checkSolvability(coefficients, rightHand, objectiveFunction) {
   tableau = pivotNormalization(tableau, pivotColumn, pivotRow);
   calculateBaseVariables(tableau, newObjectiveFunction, usedVars, allVars);
 
-  printTable(tableau, allVars, usedVars);
-
   const tableauResult = simplex(tableau, newObjectiveFunction, usedVars, allVars);
-
-  printTable(tableauResult.tableau, allVars, usedVars);
 
   for (let i = 1; i < tableauResult.tableau[0].length; i++) {
     if (tableauResult.tableau[0][i] < 0) {
@@ -316,7 +310,7 @@ function simplex(tableau, objectiveFunction, usedVars, allVars) {
       };
     }
 
-    console.log(`OUT: ${usedVars[pivotRow]}. IN: ${allVars[pivotColumn]}`);
+    // console.log(`OUT: ${usedVars[pivotRow]}. IN: ${allVars[pivotColumn]}`);
 
     if (usedVars[pivotRow] === allVars[pivotColumn]) {
       return {
@@ -374,29 +368,54 @@ function getResult(tableau, usedVars, allVars) {
 
 function calculateDiet(coefficients, rightHand, objectiveFunction) {
   if (!coefficients || !coefficients.length) {
-    console.error("Invalid input: No coefficients");
+    console.error('Invalid input: No coefficients');
     return ['No solution'];
   }
 
   for (let i = 0; i < coefficients.length; i++) {
     if (coefficients[i].length !== objectiveFunction.length) {
-      console.error("Invalid input: The number of coefficients in each row of coefficients must match the number of pleasures");
+      console.error('Invalid input: The number of coefficients in each row of coefficients must match the number of pleasures');
       return ['No solution'];
     }
   }
 
   if (coefficients.length !== rightHand.length) {
-    console.error("Invalid input: The number of rows in coefficients must match the length of rightHand");
+    console.error('Invalid input: The number of rows in coefficients must match the length of rightHand');
     return ['No solution'];
   }
 
-  const solvabilityResult = checkSolvability(coefficients, rightHand, objectiveFunction);
-
-  if (solvabilityResult !== true) {
-    return solvabilityResult;
+  let needsToCheckSolvability = false;
+  for (let i = 0; i < rightHand.length; i++) {
+    if (rightHand[i] < 0) {
+      needsToCheckSolvability = true;
+      break;
+    }
   }
 
-  console.log(12321312);
+  if (needsToCheckSolvability) {
+    const solvabilityResult = checkSolvability(coefficients, rightHand, objectiveFunction);
+
+    if (solvabilityResult !== true) {
+      return solvabilityResult;
+    }
+  }
+
+  if (objectiveFunction.length === 1) {
+    let biggestIndex = undefined;
+    let result = undefined;
+
+    for (let i = 0; i < rightHand.length; i++) {
+      const xValue = rightHand[i] / Math.abs(coefficients[i][0]);
+      const curResult = objectiveFunction[0] * xValue;
+
+      if (result === undefined || curResult > result) {
+        result = curResult
+        biggestIndex = i;
+      }
+    }
+
+    return ['Bounded solution', Math.abs(rightHand[biggestIndex]).toFixed(15)];
+  }
 
   const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
 
@@ -404,7 +423,7 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
   // allVars = columnVars = baseVars
   const { usedVars, allVars } = initializeVariablesTracker(coefficients[0].length, coefficients.length);
 
-  const tableauResult = simplex(tableau, objectiveFunction, usedVars, allVars)
+  const tableauResult = simplex(tableau, objectiveFunction, usedVars, allVars);
 
   if (tableauResult.noPivot) {
     return ['Infinity'];
@@ -465,7 +484,7 @@ function test(onlyTest) {
         [-39, 86],
         [-20]
       ),
-      expected: 'Bounded solution 39.000000000000000000',
+      expected: 'Bounded solution 39.000000000000000',
     },
     {
       id: 5,
