@@ -401,20 +401,20 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
   }
 
   if (objectiveFunction.length === 1) {
-    let biggestIndex = undefined;
+    let xValue = undefined;
     let result = undefined;
 
     for (let i = 0; i < rightHand.length; i++) {
-      const xValue = rightHand[i] / Math.abs(coefficients[i][0]);
-      const curResult = objectiveFunction[0] * xValue;
+      const curXValue = rightHand[i] / coefficients[i][0];
+      const curResult = objectiveFunction[0] * rightHand[i] < 0 ? (curXValue * -1) : curXValue;
 
       if (result === undefined || curResult > result) {
         result = curResult
-        biggestIndex = i;
+        xValue = curXValue;
       }
     }
 
-    return ['Bounded solution', Math.abs(rightHand[biggestIndex]).toFixed(15)];
+    return ['Bounded solution', Math.abs(xValue).toFixed(15)];
   }
 
   const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
@@ -499,6 +499,17 @@ function test(onlyTest) {
         [1000, 1200]
       ),
       expected: 'Bounded solution 15.000000000000000 10.000000000000000',
+    },
+    {
+      id: 6,
+      run: () => calculateDiet(
+        [
+          [26],
+        ],
+        [4362],
+        [27]
+      ),
+      expected: 'Bounded solution 167.769230769230774',
     },
   ];
 
