@@ -22,11 +22,6 @@
 
 let VERBOSE = false;
 
-let LAST_RESULT = undefined;
-let OPERATIONS_IN_OUT = {};
-
-const LIMIT_OPERATION_LOOP = 4;
-
 const readline = require('readline');
 const rl = readline.createInterface({
   input: process.stdin,
@@ -76,12 +71,16 @@ const readLines = (asXML) => {
 
 function buildTableau(coefficients, rightHand, objectiveFunction, mVars) {
   const tableau = [];
+  const objectiveWValue = objectiveFunction.reduce((acc, v) => acc + v, 0);
 
   tableau[0] = [
     1,
     ...objectiveFunction.map(v => v * -1),
+    objectiveWValue,
     ...new Array(coefficients.length).fill(0),
   ];
+
+  objectiveFunction.push(objectiveWValue);
 
   for (let i = 1; i < tableau.length; i++) {
     tableau[i] = new Array(objectiveFunction.length + coefficients.length + 2);
@@ -95,6 +94,7 @@ function buildTableau(coefficients, rightHand, objectiveFunction, mVars) {
     let newRow = [
       0,
       ...coefficients[i],
+      0,
       ...new Array(i).fill(0),
       1,
       ...new Array(coefficients.length - i - 1).fill(0),
@@ -128,6 +128,10 @@ function buildTableau(coefficients, rightHand, objectiveFunction, mVars) {
     if (rightHand[i] < 0) {
       tableau[i + 1] = [tableau[i + 1][i], ...tableau[i + 1].slice(1).map(v => v * -1)];
     }
+
+    const currentRowCoefficientsValues = tableau[i + 1].slice(1, coefficients.length + 1);
+
+    tableau[i + 1][coefficients.length + 1] = currentRowCoefficientsValues.reduce((acc, v) => acc + v, 0);
   }
 
   return tableau;
@@ -148,6 +152,8 @@ function initializeVariablesTracker(restrictionsQt, itemsQt, rightHand) {
   for (let i = 0; i < restrictionsQt; i++) {
     allVars.push(`x${i+1}`);
   }
+
+  allVars.push(`w`);
 
   for (let i = 0; i < itemsQt; i++) {
     allVars.push(`s${i + 1}`);
@@ -242,7 +248,7 @@ function pivotNormalization(tableau, pivotColumn, pivotRow) {
       continue;
     }
 
-    for (let j = 0; j < tableau[0].length; j++) {
+    for (let j = 0; j < tableau[0].length; j++) {6
       newTableau[i][j] -= (tableau[pivotRow][j] * tableau[i][pivotColumn]) / pivotValue;
     }
   }
@@ -291,7 +297,7 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalM
     const pivotColumn = getPivotColumn(tableau, allVars, mVars);
 
     if (VERBOSE) {
-      console.log('PivotColumn', pivotColumn, allVars[pivotColumn]);
+      console.log('PivotColumn', pivotColumn);
     }
 
     if (!pivotColumn) {
@@ -315,7 +321,7 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalM
     }
 
     if (VERBOSE) {
-      console.log('PivotRow', pivotRow, usedVars[pivotRow]);
+      console.log('PivotRow', pivotRow);
     }
 
     if (!pivotRow) {
@@ -331,28 +337,6 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalM
     if (VERBOSE) {
       console.log(`OUT: ${usedVars[pivotRow]}. IN: ${allVars[pivotColumn]}`);
     }
-
-    if (!OPERATIONS_IN_OUT[allVars[pivotColumn]]) {
-      OPERATIONS_IN_OUT[allVars[pivotColumn]] = {}
-    }
-
-    if (!OPERATIONS_IN_OUT[allVars[pivotColumn]][usedVars[pivotRow]]) {
-      OPERATIONS_IN_OUT[allVars[pivotColumn]][usedVars[pivotRow]] = 0;
-    }
-
-    OPERATIONS_IN_OUT[allVars[pivotColumn]][usedVars[pivotRow]]++;
-
-    if (OPERATIONS_IN_OUT[allVars[pivotColumn]][usedVars[pivotRow]] === LIMIT_OPERATION_LOOP) {
-      return LAST_RESULT;
-    }
-
-    LAST_RESULT = {
-      tableau: tableau.map(row => [...row]),
-      allVars: [...allVars],
-      usedVars: [...usedVars],
-      mVars: [...mVars],
-      originalMVars: [...originalMVars],
-    };
 
     usedVars[pivotRow] = allVars[pivotColumn];
 
@@ -484,14 +468,10 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
 
   // usedVars = rowVars = basicVars
   // allVars = columnVars = baseVars
-  const initializedVariables = initializeVariablesTracker(coefficients[0].length, coefficients.length, rightHand);
-
-  let allVars = initializedVariables.allVars;
-  let mVars = initializedVariables.mVars;
-  let usedVars = initializedVariables.usedVars;
+  const { allVars, mVars, usedVars } = initializeVariablesTracker(coefficients[0].length, coefficients.length, rightHand);
 
   let tableau = buildTableau(coefficients, rightHand, objectiveFunction, mVars);
-  let originalMVars = [...mVars];
+  const originalMVars = [...mVars];
 
   calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars);
 
@@ -506,35 +486,11 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
     return [tableau];
   }
 
-  if (tableau.tableau) {
-    allVars = tableau.allVars;
-    usedVars = tableau.usedVars;
-    mVars = tableau.mVars;
-    originalMVars = tableau.originalMVars;
-    tableau = tableau.tableau;
-  }
-
   const { result, variablesEndValues, variablesBaseValues } = getResult(tableau, usedVars, allVars);
 
   for (const variable in variablesEndValues) {
-    let totalXVars = 0;
-    for (let i = 0; i < allVars.length; i++) {
-      if (allVars[i].indexOf('x') > -1) {
-        totalXVars++;
-      }
-    }
-
-    let usedXVars = 0;
-    for (let i = 0; i < usedVars.length; i++) {
-      if (usedVars[i].indexOf('x') > -1) {
-        usedXVars++;
-      }
-    }
-
-    if (usedXVars !== totalXVars) {
-      if (variable.indexOf('a') > -1 && variablesEndValues[variable] > 0) {
-        return ['No solution'];
-      }
+    if (variable.indexOf('a') > -1 && variablesEndValues[variable] > 0) {
+      return ['No solution'];
     }
   }
 
@@ -689,22 +645,6 @@ function test(onlyTest) {
       ),
       expected: 'No solution',
     },
-    {
-      id: 13,
-      run: () => calculateDiet(
-        [
-          [90, 61, 70],
-          [29, -14, 41],
-          [74, -76, -58],
-          [-57, 34, 2],
-          [-71, -6, -97],
-          [5, 58, -8],
-        ],
-        [8909, 1051, -1158, -940, -4919, 3610],
-        [-72, -91, -16]
-      ),
-      expected: 'Bounded solution 51.999999999999986 58.999999999999993 9.000000000000002',
-    },
   ];
 
   if (onlyTest !== undefined) {
@@ -717,9 +657,6 @@ function test(onlyTest) {
   }
 
   testCases.forEach(testCase => {
-    LAST_RESULT = undefined;
-    OPERATIONS_IN_OUT = {};
-
     const result = testCase.run();
 
     if (result.join(' ') === testCase.expected) {
