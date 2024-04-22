@@ -243,7 +243,7 @@ function pivotNormalization(tableau, pivotColumn, pivotRow) {
   return newTableau;
 }
 
-function calculateZRow(tableau, objectiveFunction, usedVars, allVars, mVars) {
+function calculateZRow(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars) {
   for (let j = 1; j < tableau[0].length; j++) {
     const columnVar = allVars[j];
     const varValue = objectiveFunction[j - 1];
@@ -255,7 +255,7 @@ function calculateZRow(tableau, objectiveFunction, usedVars, allVars, mVars) {
       const cellValue = tableau[i][j];
       const zVarIndex = allVars.findIndex(v => v === usedVars[i]);
       const zValue = tableau[i][0];
-      const zMValue = (mVars[zVarIndex] * -1) * cellValue;
+      const zMValue = (originalMVars[zVarIndex] * -1) * cellValue;
 
       cValue += zValue * cellValue;
       mVars[j] += zMValue;
@@ -274,12 +274,12 @@ function calculateBaseColumn(tableau, objectiveFunction, usedVars, allVars) {
   }
 }
 
-function calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars) {
+function calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars) {
   calculateBaseColumn(tableau, objectiveFunction, usedVars, allVars);
-  calculateZRow(tableau, objectiveFunction, usedVars, allVars, mVars);
+  calculateZRow(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars);
 }
 
-function simplex(tableau, objectiveFunction, usedVars, allVars, mVars) {
+function simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars) {
   while (hasNegative(tableau, allVars, mVars)) {
     const pivotColumn = getPivotColumn(tableau, allVars, mVars);
     let minRatio = Number.POSITIVE_INFINITY;
@@ -302,7 +302,7 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars) {
       return 1;
     }
 
-    console.log(`OUT: ${usedVars[pivotRow]}. IN: ${allVars[pivotColumn]}`);
+    // console.log(`OUT: ${usedVars[pivotRow]}. IN: ${allVars[pivotColumn]}`);
 
     if (usedVars[pivotRow] === allVars[pivotColumn]) {
       return 2;
@@ -312,9 +312,9 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars) {
 
     tableau = pivotNormalization(tableau, pivotColumn, pivotRow);
 
-    calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars);
+    calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars);
 
-    printTable(tableau, allVars, usedVars, mVars);
+    // printTable(tableau, allVars, usedVars, mVars, originalMVars);
   }
 
   return tableau;
@@ -362,7 +362,7 @@ function pad(text, width = 0, placeholder = ' ') {
   return `${text}`.length >= width ? text : new Array(width - `${text}`.length + 1).join(placeholder) + text;
 }
 
-function printTable(tableau, allVars, usedVars, mVars) {
+function printTable(tableau, allVars, usedVars, mVars, originalMVars) {
   console.log(allVars.map(v => '=============').join('').slice(allVars.length - 4));
   console.log(`   [${allVars.map(v => pad(v, 11, ' ')).join('|')}]`);
   console.log(`   [${allVars.map(v => '------------').join('').slice(1)}]`);
@@ -374,7 +374,7 @@ function printTable(tableau, allVars, usedVars, mVars) {
       return v;
     }
 
-    const mValue = mVars[mIndex];
+    const mValue = isZColumn ? originalMVars[mIndex] : mVars[mIndex];
 
     if (mValue !== 0) {
       const mText = `${mValue}M`;
@@ -422,16 +422,17 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
 
   // usedVars = rowVars = basicVars
   // allVars = columnVars = baseVars
-  const { allVars, usedVars, mVars } = initializeVariablesTracker(coefficients[0].length, coefficients.length, rightHand);
+  const { allVars, mVars, usedVars } = initializeVariablesTracker(coefficients[0].length, coefficients.length, rightHand);
 
   let tableau = buildTableau(coefficients, rightHand, objectiveFunction, mVars);
+  const originalMVars = [...mVars];
 
-  calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars);
+  calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars);
 
-  console.log('INITIAL STATE');
-  printTable(tableau, allVars, usedVars, mVars);
+  // console.log('INITIAL STATE');
+  // printTable(tableau, allVars, usedVars, mVars, originalMVars);
 
-  tableau = simplex(tableau, objectiveFunction, usedVars, allVars, mVars);
+  tableau = simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars);
 
   if (tableau === 1) {
     return ['Infinity'];
@@ -558,7 +559,19 @@ function test(onlyTest) {
         [-5042, -8928],
         [-6]
       ),
-      expected: 'Bounded solution 102.89795918367346',
+      expected: 'Bounded solution 102.897959183673464',
+    },
+    {
+      id: 10,
+      run: () => calculateDiet(
+        [
+          [13, 54, 47],
+          [-61, -45, 2],
+        ],
+        [4382, -5006],
+        [-97, -66, -55]
+      ),
+      expected: 'Bounded solution 26.996677740863785 74.648947951273527 0.000000000000005',
     },
   ];
 
