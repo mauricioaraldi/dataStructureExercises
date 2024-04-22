@@ -171,7 +171,7 @@ function hasNegative(tableau, allVars, mVars) {
     return acc;
   }, 0);
 
-  for (let i = 1; i < validVariablesCount; i++) {
+  for (let i = 1; i <= validVariablesCount; i++) {
     if (mVars[i] < 0 || tableau[0][i] < 0) {
       return true;
     }
@@ -193,7 +193,7 @@ function getPivotColumn(tableau, allVars, mVars) {
     return acc;
   }, 0);
 
-  for (let i = 1; i < validVariablesCount; i++) {
+  for (let i = 1; i <= validVariablesCount; i++) {
     if (mVars[i] < min) {
       pivotColumn = i;
       min = mVars[i];
@@ -206,7 +206,7 @@ function getPivotColumn(tableau, allVars, mVars) {
 
   min = Number.POSITIVE_INFINITY;
 
-  for (let i = 1; i < validVariablesCount; i++) {
+  for (let i = 1; i <= validVariablesCount; i++) {
     if (tableau[0][i] < min) {
       pivotColumn = i;
       min = tableau[0][i];
@@ -312,12 +312,8 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars) {
 
     tableau = pivotNormalization(tableau, pivotColumn, pivotRow);
 
-    console.log(111111);
-    printTable(tableau, allVars, usedVars, mVars);
-
     calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars);
 
-    console.log(22222);
     printTable(tableau, allVars, usedVars, mVars);
   }
 
@@ -367,9 +363,9 @@ function pad(text, width = 0, placeholder = ' ') {
 }
 
 function printTable(tableau, allVars, usedVars, mVars) {
-  console.log(allVars.map(v => '=========').join('').slice(allVars.length - 4));
-  console.log(`   [${allVars.map(v => pad(v, 7, ' ')).join('|')}]`);
-  console.log(`   [${allVars.map(v => '--------').join('').slice(1)}]`);
+  console.log(allVars.map(v => '=============').join('').slice(allVars.length - 4));
+  console.log(`   [${allVars.map(v => pad(v, 11, ' ')).join('|')}]`);
+  console.log(`   [${allVars.map(v => '------------').join('').slice(1)}]`);
 
   const getMValue = (v, j, isZColumn = false) => {
     const mIndex = isZColumn ? allVars.findIndex(mV => mV === usedVars[j]) : j;
@@ -398,12 +394,12 @@ function printTable(tableau, allVars, usedVars, mVars) {
 
   for (let i = 0; i < tableau.length; i++) {
     if (i === 0) {
-      console.log(`${pad(usedVars[i], 2, ' ')} [${tableau[i].map((v, j) => pad(getMValue(v, j), 7, ' ')).join('|')}]`);
+      console.log(`${pad(usedVars[i], 2, ' ')} [${tableau[i].map((v, j) => pad(getMValue(v.toFixed(2), j), 11, ' ')).join('|')}]`);
     } else {
-      console.log(`${pad(usedVars[i], 2, ' ')} [${tableau[i].map((v, j) => j === 0 ? pad(getMValue(v, i, true), 7, ' ') : pad(v, 7, ' ')).join('|')}]`);
+      console.log(`${pad(usedVars[i], 2, ' ')} [${tableau[i].map((v, j) => j === 0 ? pad(getMValue(v.toFixed(2), i, true), 11, ' ') : pad(v.toFixed(2), 11, ' ')).join('|')}]`);
     }
   }
-  console.log(allVars.map(v => '=========').join('').slice(allVars.length - 4));
+  console.log(allVars.map(v => '=============').join('').slice(allVars.length - 4));
 }
 
 function calculateDiet(coefficients, rightHand, objectiveFunction) {
@@ -432,7 +428,7 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
 
   calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars);
 
-  console.log('INITIAL CALCULATED');
+  console.log('INITIAL STATE');
   printTable(tableau, allVars, usedVars, mVars);
 
   tableau = simplex(tableau, objectiveFunction, usedVars, allVars, mVars);
@@ -444,6 +440,12 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
   }
 
   const { result, variablesEndValues, variablesBaseValues } = getResult(tableau, usedVars, allVars);
+
+  for (const variable in variablesEndValues) {
+    if (variable.indexOf('a') > -1 && variablesEndValues[variable] > 0) {
+      return ['No solution'];
+    }
+  }
 
   return ['Bounded solution', result.map(v => v.toFixed(15)).join(' ')];
 }
@@ -545,6 +547,18 @@ function test(onlyTest) {
         [39]
       ),
       expected: 'Infinity',
+    },
+    {
+      id: 9,
+      run: () => calculateDiet(
+        [
+          [-49],
+          [-95],
+        ],
+        [-5042, -8928],
+        [-6]
+      ),
+      expected: 'Bounded solution 102.89795918367346',
     },
   ];
 

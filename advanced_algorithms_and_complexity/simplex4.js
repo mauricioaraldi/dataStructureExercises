@@ -325,6 +325,8 @@ function simplex(tableau, objectiveFunction, usedVars, allVars) {
 
     tableau = pivotNormalization(tableau, pivotColumn, pivotRow);
     calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars);
+
+    printTable(tableau, allVars, usedVars);
   }
 
   return { tableau };
@@ -425,6 +427,9 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
   // allVars = columnVars = baseVars
   const { usedVars, allVars } = initializeVariablesTracker(coefficients[0].length, coefficients.length);
 
+  console.log('INITIAL STATE');
+  printTable(tableau, allVars, usedVars);
+
   const tableauResult = simplex(tableau, objectiveFunction, usedVars, allVars);
 
   if (tableauResult.noPivot) {
@@ -436,6 +441,7 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
   const { result, variablesEndValues, variablesBaseValues } = getResult(tableauResult.tableau, usedVars, allVars);
 
   printTable(tableau, allVars, usedVars);
+  console.log(result, variablesEndValues);
 
   return ['Bounded solution', result.map(v => v.toFixed(15)).join(' ')];
 }
