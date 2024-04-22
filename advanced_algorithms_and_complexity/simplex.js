@@ -20,6 +20,8 @@
 // Example output: Bounded solution
 //                 0.000000000000000 2.000000000000000
 
+let VERBOSE = false;
+
 const readline = require('readline');
 const rl = readline.createInterface({
   input: process.stdin,
@@ -236,6 +238,7 @@ function pivotNormalization(tableau, pivotColumn, pivotRow) {
     }
 
     for (let j = 0; j < tableau[0].length; j++) {
+      console.log((tableau[pivotRow][j] * tableau[i][pivotColumn]) / pivotValue);
       newTableau[i][j] -= (tableau[pivotRow][j] * tableau[i][pivotColumn]) / pivotValue;
     }
   }
@@ -282,6 +285,15 @@ function calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, m
 function simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars) {
   while (hasNegative(tableau, allVars, mVars)) {
     const pivotColumn = getPivotColumn(tableau, allVars, mVars);
+
+    if (VERBOSE) {
+      console.log('PivotColumn', pivotColumn);
+    }
+
+    if (!pivotColumn) {
+      return tableau;
+    }
+
     let minRatio = Number.POSITIVE_INFINITY;
     let pivotRow = undefined;
 
@@ -298,14 +310,22 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalM
       }
     }
 
-    if (!pivotRow) {
-      return 1;
+    if (VERBOSE) {
+      console.log('PivotRow', pivotRow);
     }
 
-    // console.log(`OUT: ${usedVars[pivotRow]}. IN: ${allVars[pivotColumn]}`);
+    if (!pivotRow) {
+      for (let i = 0; i < usedVars.length; i++) {
+        if (usedVars[i].indexOf('a') > -1) {
+          return 'No solution';
+        }
+      }
 
-    if (usedVars[pivotRow] === allVars[pivotColumn]) {
-      return 2;
+      return 'Infinity';
+    }
+
+    if (VERBOSE) {
+      console.log(`OUT: ${usedVars[pivotRow]}. IN: ${allVars[pivotColumn]}`);
     }
 
     usedVars[pivotRow] = allVars[pivotColumn];
@@ -314,7 +334,9 @@ function simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalM
 
     calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars);
 
-    // printTable(tableau, allVars, usedVars, mVars, originalMVars);
+    if (VERBOSE) {
+      printTable(tableau, allVars, usedVars, mVars, originalMVars);
+    }
   }
 
   return tableau;
@@ -363,9 +385,9 @@ function pad(text, width = 0, placeholder = ' ') {
 }
 
 function printTable(tableau, allVars, usedVars, mVars, originalMVars) {
-  console.log(allVars.map(v => '=============').join('').slice(allVars.length - 4));
-  console.log(`   [${allVars.map(v => pad(v, 11, ' ')).join('|')}]`);
-  console.log(`   [${allVars.map(v => '------------').join('').slice(1)}]`);
+  console.log(allVars.map(v => '===========').join('').slice(allVars.length - 4));
+  console.log(`   [${allVars.map(v => pad(v, 9, ' ')).join('|')}]`);
+  console.log(`   [${allVars.map(v => '----------').join('').slice(1)}]`);
 
   const getMValue = (v, j, isZColumn = false) => {
     const mIndex = isZColumn ? allVars.findIndex(mV => mV === usedVars[j]) : j;
@@ -374,7 +396,9 @@ function printTable(tableau, allVars, usedVars, mVars, originalMVars) {
       return v;
     }
 
-    const mValue = isZColumn ? originalMVars[mIndex] : mVars[mIndex];
+    let mValue = isZColumn ? originalMVars[mIndex] : mVars[mIndex];
+
+    mValue = parseFloat(mValue.toFixed(1), 10);
 
     if (mValue !== 0) {
       const mText = `${mValue}M`;
@@ -392,14 +416,26 @@ function printTable(tableau, allVars, usedVars, mVars, originalMVars) {
     return v;
   };
 
+  const getPaddedValue = (v, index, isZRow = false) => {
+    return pad(getMValue(parseFloat(v.toFixed(1), 10), index, isZRow), 9, ' ');
+  };
+
   for (let i = 0; i < tableau.length; i++) {
+    const varName = pad(usedVars[i], 2, ' ');
+
     if (i === 0) {
-      console.log(`${pad(usedVars[i], 2, ' ')} [${tableau[i].map((v, j) => pad(getMValue(v.toFixed(2), j), 11, ' ')).join('|')}]`);
+      const varValues = tableau[i].map(getPaddedValue).join('|');
+
+      console.log(`${varName} [${varValues}]`);
     } else {
-      console.log(`${pad(usedVars[i], 2, ' ')} [${tableau[i].map((v, j) => j === 0 ? pad(getMValue(v.toFixed(2), i, true), 11, ' ') : pad(v.toFixed(2), 11, ' ')).join('|')}]`);
+      const varValues = tableau[i].map((v, j) => j === 0
+        ? getPaddedValue(v, j, true)
+        : pad(parseFloat(v.toFixed(1), 10), 9, ' ')).join('|');
+
+      console.log(`${varName} [${varValues}]`);
     }
   }
-  console.log(allVars.map(v => '=============').join('').slice(allVars.length - 4));
+  console.log(allVars.map(v => '===========').join('').slice(allVars.length - 4));
 }
 
 function calculateDiet(coefficients, rightHand, objectiveFunction) {
@@ -429,15 +465,15 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
 
   calculateBaseVariables(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars);
 
-  // console.log('INITIAL STATE');
-  // printTable(tableau, allVars, usedVars, mVars, originalMVars);
+  if (VERBOSE) {
+    console.log('INITIAL STATE');
+    printTable(tableau, allVars, usedVars, mVars, originalMVars);
+  }
 
   tableau = simplex(tableau, objectiveFunction, usedVars, allVars, mVars, originalMVars);
 
-  if (tableau === 1) {
-    return ['Infinity'];
-  } else if (tableau === 2) {
-    return ['No solution'];
+  if (typeof tableau === 'string') {
+    return [tableau];
   }
 
   const { result, variablesEndValues, variablesBaseValues } = getResult(tableau, usedVars, allVars);
@@ -571,7 +607,33 @@ function test(onlyTest) {
         [4382, -5006],
         [-97, -66, -55]
       ),
-      expected: 'Bounded solution 26.996677740863785 74.648947951273527 0.000000000000005',
+      expected: 'Bounded solution 26.996677740863781 74.648947951273527 0.000000000000000',
+    },
+    {
+      id: 11,
+      run: () => calculateDiet(
+        [
+          [-78],
+          [-24],
+          [10],
+        ],
+        [-4898, -499, -8710],
+        [44]
+      ),
+      expected: 'No solution',
+    },
+    {
+      id: 12,
+      run: () => calculateDiet(
+        [
+          [-88, -2, 59],
+          [-46, -46, 14],
+          [37, 49, 78],
+        ],
+        [11412, -1040, -27722],
+        [16, 66, 95]
+      ),
+      expected: 'No solution',
     },
   ];
 
@@ -602,6 +664,8 @@ function test(onlyTest) {
 if (process && process.argv && process.argv.includes('-t')) {
   const indexOfT = process.argv.indexOf('-t');
   const testToRun = process.argv[indexOfT + 1];
+
+  VERBOSE = process.argv.includes('-v');
 
   return test(testToRun);
 }
