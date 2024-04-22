@@ -290,6 +290,8 @@ function simplex(tableau, objectiveFunction, usedVars, allVars) {
     let minRatio = Number.POSITIVE_INFINITY;
     let pivotRow = undefined;
 
+    console.log(pivotRow);
+
     for (let i = 1; i < tableau.length; i++) {
       if (tableau[i][pivotColumn] <= 0) {
         continue;
@@ -392,30 +394,30 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
     }
   }
 
-  if (needsToCheckSolvability) {
-    const solvabilityResult = checkSolvability(coefficients, rightHand, objectiveFunction);
+  // if (needsToCheckSolvability) {
+  //   const solvabilityResult = checkSolvability(coefficients, rightHand, objectiveFunction);
 
-    if (solvabilityResult !== true) {
-      return solvabilityResult;
-    }
-  }
+  //   if (solvabilityResult !== true) {
+  //     return solvabilityResult;
+  //   }
+  // }
 
-  if (objectiveFunction.length === 1) {
-    let xValue = undefined;
-    let result = undefined;
+  // if (objectiveFunction.length === 1 && coefficients.length > 1) {
+  //   let xValue = undefined;
+  //   let result = undefined;
 
-    for (let i = 0; i < rightHand.length; i++) {
-      const curXValue = rightHand[i] / coefficients[i][0];
-      const curResult = objectiveFunction[0] * rightHand[i] < 0 ? (curXValue * -1) : curXValue;
+  //   for (let i = 0; i < rightHand.length; i++) {
+  //     const curXValue = rightHand[i] / coefficients[i][0];
+  //     const curResult = objectiveFunction[0] * rightHand[i] < 0 ? (curXValue * -1) : curXValue;
 
-      if (result === undefined || curResult > result) {
-        result = curResult
-        xValue = curXValue;
-      }
-    }
+  //     if (result === undefined || curResult > result) {
+  //       result = curResult
+  //       xValue = curXValue;
+  //     }
+  //   }
 
-    return ['Bounded solution', Math.abs(xValue).toFixed(15)];
-  }
+  //   return ['Bounded solution', Math.abs(xValue).toFixed(15)];
+  // }
 
   const tableau = buildTableau(coefficients, rightHand, objectiveFunction);
 
@@ -432,6 +434,8 @@ function calculateDiet(coefficients, rightHand, objectiveFunction) {
   }
 
   const { result, variablesEndValues, variablesBaseValues } = getResult(tableauResult.tableau, usedVars, allVars);
+
+  printTable(tableau, allVars, usedVars);
 
   return ['Bounded solution', result.map(v => v.toFixed(15)).join(' ')];
 }
@@ -510,6 +514,29 @@ function test(onlyTest) {
         [27]
       ),
       expected: 'Bounded solution 167.769230769230774',
+    },
+    {
+      id: 7,
+      run: () => calculateDiet(
+        [
+          [30],
+        ],
+        [1680],
+        [-87]
+      ),
+      expected: 'Bounded solution 0.000000000000000',
+    },
+    {
+      id: 8,
+      run: () => calculateDiet(
+        [
+          [-38],
+          [-49],
+        ],
+        [-5087, -5042],
+        [39]
+      ),
+      expected: 'Infinity',
     },
   ];
 
