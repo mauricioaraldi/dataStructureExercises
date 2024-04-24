@@ -1,6 +1,6 @@
 // Input: First line 'n m' where 'cities roads'. Next m lines contains 'u v c' respectively
-// start of the road, end of the road and capacity. u and v are 1-based indices. Graph is
-// mono directional; 
+//    start of the road, end of the road and capacity. u and v are 1-based indices. Graph is
+//    mono directional; 
 // Example input: 5 7
 //                1 2 2
 //                2 5 5

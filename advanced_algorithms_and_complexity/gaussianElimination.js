@@ -1,6 +1,6 @@
 // Input: First line integer n - the number of dishes in the menu, and the number of different ingredients is the same.
-// Next n lines description 'an', E of a single menu item. 'ai' amount of i-th ingredient in the dish, and E is the
-// energy value. If ingredient is not used, amount will be specified as ai = 0; need to work with negative numbers ai < 0.
+//    Next n lines description 'an', E of a single menu item. 'ai' amount of i-th ingredient in the dish, and E is the
+//    energy value. If ingredient is not used, amount will be specified as ai = 0; need to work with negative numbers ai < 0.
 // Example input: 4
 //                1 0 0 0 1
 //                0 1 0 0 5

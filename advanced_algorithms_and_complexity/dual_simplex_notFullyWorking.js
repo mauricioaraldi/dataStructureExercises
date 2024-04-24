@@ -1,11 +1,11 @@
 // Input: First line integer n and m (n number of restrictions on the diet, m number of dishes/drinks).
-// Next n + 1 lines coefficients of inequalities (form Ax <= b, where x = amount is the vector of
-// length m with amounts of each ingredient, A is the n x m matrix with coefficients of inequalities and
-// b is the vector with the right-hand side of each inequality). Specifically, the next n lines contains
-// m integers Ai1, 𝐴i2, ... and the next line after those n contains n integers b1, b2, ... .These
-// lines describe n inequalities of the form Ai1 x amount1 + Ai2 x amount2 + ... x amountm <= bi. The
-// last line of the input contains m integers - the pleasure for consuming one item of each dish and drink
-// pleasure1, pleasure2, ... .
+//    Next n + 1 lines coefficients of inequalities (form Ax <= b, where x = amount is the vector of
+//    length m with amounts of each ingredient, A is the n x m matrix with coefficients of inequalities and
+//    b is the vector with the right-hand side of each inequality). Specifically, the next n lines contains
+//    m integers Ai1, 𝐴i2, ... and the next line after those n contains n integers b1, b2, ... .These
+//    lines describe n inequalities of the form Ai1 x amount1 + Ai2 x amount2 + ... x amountm <= bi. The
+//    last line of the input contains m integers - the pleasure for consuming one item of each dish and drink
+//    pleasure1, pleasure2, ... .
 // Example input: 3 2
 //                -1 -1
 //                1 0
@@ -13,8 +13,8 @@
 //                -1 2 2
 //                -1 2
 // Output: If there is no diet that satisfies all the restrictions, output "No solution".
-//         If you can get as much pleasure as you want despite all the restrictions, output “Infinity".
-//         If the maximum possible total pleasure is bounded, output two lines. On the first line, output
+//    If you can get as much pleasure as you want despite all the restrictions, output “Infinity".
+//    If the maximum possible total pleasure is bounded, output two lines. On the first line, output
 // “Bounded solution”. On the second line, output m real numbers - the optimal amounts for each dish and drink.
 //         Output all the numbers with at least 15 digits after the decimal point.
 // Example output: Bounded solution

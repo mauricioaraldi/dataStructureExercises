@@ -1,11 +1,11 @@
 // Input: First line 'n m' where 'flights crews'. Next n lines contains m binary integers.
-// If the j integer in the i line is 1, it means crew j can work on flight i. 
+//    If the j integer in the i line is 1, it means crew j can work on flight i. 
 // Example input: 3 4
 //                1 1 0 1
 //                0 1 0 0
 //                0 0 0 0
 // Output: n (flights) integers: the 1-based index of the crew working on that flight. No
-// crew means -1. Must be pairwise different (except -1). When multiple choices, output any
+//    crew means -1. Must be pairwise different (except -1). When multiple choices, output any
 // Example output: 1 2 -1
 
 const readline = require('readline');
