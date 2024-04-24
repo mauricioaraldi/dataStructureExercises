@@ -90,6 +90,25 @@ function test(onlyTest) {
         [1, -1, 0],
       ]
     },
+    {
+      id: 2,
+      run: () => hexagonColoring(
+        4,
+        [
+          [1, 2],
+          [1, 3],
+          [1, 4],
+          [2, 3],
+          [2, 4],
+          [3, 4],
+        ]
+      ),
+      expected: [
+        [2, 1],
+        [1, 0],
+        [-1, 0],
+      ]
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -127,4 +146,4 @@ if (process && process.argv && process.argv.includes('-t')) {
 
 readLines();
 
-module.exports = calculateDiet;
+module.exports = hexagonColoring;
