@@ -9,8 +9,8 @@
 
 let VERBOSE = false;
 
-const { writeFile } = require('node:fs/promises');
-const { execSync } = require('node:child_process');
+const fs = require('fs');
+const childProcess = require('child_process');
 const readline = require('readline');
 
 const rl = readline.createInterface({
@@ -18,12 +18,12 @@ const rl = readline.createInterface({
   terminal: false
 });
 
-const readLines = async () => {
+const readLines = () => {
   process.stdin.setEncoding('utf8');
 
   const connections = [];
 
-  rl.once('line', async line => {
+  rl.once('line', line => {
     const [verticesQt, edges] = line.split(' ').map(v => parseInt(v, 10));
     let n = edges;
 
@@ -32,7 +32,7 @@ const readLines = async () => {
       process.exit();
     }
 
-    const readConnection = async line => {
+    const readConnection = line => {
       const link = line.toString().split(' ').map(v => parseInt(v, 10));
 
       connections.push(link);
@@ -40,10 +40,9 @@ const readLines = async () => {
       if (!--n) {
         rl.removeListener('line', readConnection);
 
-        const result = await hexagonColoring(verticesQt, connections);
+        const result = hexagonColoring(verticesQt, connections);
 
         process.stdout.write(result);
-
         process.exit();
       }
     };
@@ -98,8 +97,12 @@ function createClauseSingleColorNeighbors(i, graph) {
     });
   });
 
+  const mustHaveColorClause = [];
+
   // repeat for each color
   for (let j = 1; j <= 3; j++) {
+    mustHaveColorClause.push(`${i}${j}`);
+
     allClauses.push(
       ...sampleClauses.map(
         sampleClause => sampleClause.map(vertex => `${vertex}${j}`)
@@ -107,10 +110,12 @@ function createClauseSingleColorNeighbors(i, graph) {
     );
   }
 
+  allClauses.push(mustHaveColorClause);
+
   return allClauses;
 }
 
-async function hexagonColoring(verticesQt, connections) {
+function hexagonColoring(verticesQt, connections) {
   if (!verticesQt || !connections) {
     console.error("Invalid input: No vertices or connections");
     return [];
@@ -131,7 +136,7 @@ async function hexagonColoring(verticesQt, connections) {
   const graph = buildGraph(verticesQt);
   createConnections(graph, connections);
 
-  for (let i = 1; i < verticesQt; i++) {
+  for (let i = 1; i <= verticesQt; i++) {
     const newClauses = createClauseSingleColorNeighbors(i, graph);
 
     newClauses.forEach(newClause => {
@@ -145,14 +150,17 @@ async function hexagonColoring(verticesQt, connections) {
   try {
     const FILENAME = 'sat_input.txt';
 
-    await writeFile(FILENAME, SATInput);
+    fs.writeFileSync(FILENAME, SATInput);
 
-    execOutput = await execSync(
+    execOutput = childProcess.execSync(
       `minisat "${FILENAME}"`,
       { encoding: 'utf8' }
     );
   } catch (err) {
-    if (err.status && err.status === 10 && err.stdout) {
+    // err.status
+    // 10 = SATISFIABLE
+    // 20 = UNSATISFIABLE
+    if (err.status && [10, 20].indexOf(err.status) > -1 && err.stdout) {
       execOutput = err.stdout;
     } else {
       console.error(err);
@@ -169,7 +177,7 @@ async function hexagonColoring(verticesQt, connections) {
   return result;
 }
 
-async function test(outputType, onlyTest) {
+function test(outputType, onlyTest) {
   let testCases = [
     {
       id: 1,
@@ -221,16 +229,18 @@ async function test(outputType, onlyTest) {
   const testCasesPromises = testCases.map(testCase => testCase.run());
 
   Promise.all(testCasesPromises).then(results => {
-    results.forEach((result, index) => {
+    results.forEach((result, i) => {
+      const testCase = testCases[i];
+
       if (outputType === 'RESULT') {
-        console.log(result.join('\n'));
+        console.log(result);
       } else if (outputType === 'TEST') {
-        if (result.join('|') === testCases[index].expected.join('|')) {
+        if (result === testCase.expected) {
           console.log(`[V] Passed test ${testCase.id}`);
         } else {
           console.log(`[X] Failed test ${testCase.id}`);
-          console.log(`Expected: ${testCases[index].expected.join('|')}`);
-          console.log(`Got: ${result.join('|')}`);
+          console.log(`Expected: ${testCase.expected}`);
+          console.log(`Got: ${result}`);
         }
       }
     });
