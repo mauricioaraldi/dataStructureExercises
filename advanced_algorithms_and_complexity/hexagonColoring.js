@@ -45,7 +45,7 @@ const readLines = () => {
       if (!--n) {
         rl.removeListener('line', readConnection);
 
-        process.stdout.write(hexagonColoring(verticesQt, connections).toString());
+        process.stdout.write(hexagonColoring(verticesQt, connections).join('\n'));
 
         process.exit();
       }
@@ -54,6 +54,64 @@ const readLines = () => {
     rl.on('line', readConnection);
   });
 };
+
+function createConnections(graph, connections) {
+  connections.forEach(([origin, destiny]) => {
+    graph[origin].edges.add(destiny);
+    graph[destiny].edges.add(origin);
+  });
+}
+
+function buildGraph(verticesQt) {
+  const graph = {};
+
+  for (let i = 1; i <= verticesQt; i++) {
+    graph[i] = {
+      edges: new Set(),
+      color: undefined,
+    };
+  }
+
+  return graph;
+}
+
+// Each neighbor vertex can only have one color
+function createClauseSingleColorNeighbors(i, graph) {
+  // e.g. i = 2, edges = 1, 3
+  
+  // e.g. [2, 1, 3]
+  const vertexAndNeighbors = [i, ...Array.from(graph[i].edges)];
+  const sampleClauses = [];
+  const allClauses = [];
+
+  vertexAndNeighbors.sort();
+
+  // e.g. [1, 2, 3]
+  sampleClauses.push([...vertexAndNeighbors]);
+
+  //Guarantees only one of each neighbors to be true
+  vertexAndNeighbors.forEach((vertex, index) => {
+    if (index === vertexAndNeighbors.length - 1) {
+      return;
+    }
+
+    vertexAndNeighbors.slice(index + 1).forEach((neighborVertex) => {
+      // e.g. [-1, -2] [-1, -3] [-2, -3]
+      sampleClauses.push([-vertex, -neighborVertex]);
+    });
+  });
+
+  // repeat for each color
+  for (let j = 1; j <= 3; j++) {
+    allClauses.push(
+      ...sampleClauses.map(
+        sampleClause => sampleClause.map(vertex => `${vertex}${j}`)
+      )
+    );
+  }
+
+  return allClauses;
+}
 
 function hexagonColoring(verticesQt, connections) {
   if (!verticesQt || !connections) {
@@ -70,10 +128,24 @@ function hexagonColoring(verticesQt, connections) {
     }
   }
 
-  return [[1, 2], [1, 2]];
+  // Default form assumes xij = i vertex = j color
+  const clauses = new Set();
+
+  const graph = buildGraph(verticesQt);
+  createConnections(graph, connections);
+
+  for (let i = 1; i < verticesQt; i++) {
+    const newClauses = createClauseSingleColorNeighbors(i, graph);
+
+    newClauses.forEach(newClause => {
+      clauses.add(`${newClause.join(' ')} 0`);
+    });
+  }
+
+  return [`${clauses.size} ${verticesQt}`, ...Array.from(clauses)];
 }
 
-function test(onlyTest) {
+function test(onlyOutput, onlyTest) {
   let testCases = [
     {
       id: 1,
@@ -123,12 +195,16 @@ function test(onlyTest) {
   testCases.forEach(testCase => {
     const result = testCase.run();
 
-    if (result.join('') === testCase.expected.join('')) {
-      console.log(`[V] Passed test ${testCase.id}`);
+    if (onlyOutput) {
+      console.log(result.join('\n'));
     } else {
-      console.log(`[X] Failed test ${testCase.id}`);
-      console.log(`Expected: ${testCase.expected.join('')}`);
-      console.log(`Got: ${result.join('')}`);
+      if (result.join('|') === testCase.expected.join('|')) {
+        console.log(`[V] Passed test ${testCase.id}`);
+      } else {
+        console.log(`[X] Failed test ${testCase.id}`);
+        console.log(`Expected: ${testCase.expected.join('|')}`);
+        console.log(`Got: ${result.join('|')}`);
+      }
     }
   });
 
@@ -136,12 +212,13 @@ function test(onlyTest) {
 }
 
 if (process && process.argv && process.argv.includes('-t')) {
+  const onlyOutput = process.argv.includes('-o');
   const indexOfT = process.argv.indexOf('-t');
   const testToRun = process.argv[indexOfT + 1];
 
   VERBOSE = process.argv.includes('-v');
 
-  return test(testToRun);
+  return test(onlyOutput, testToRun);
 }
 
 readLines();
