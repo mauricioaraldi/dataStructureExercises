@@ -77,7 +77,7 @@ function buildGraph(verticesQt) {
 }
 
 // Each neighbor vertex can only have one color
-function createClauseSingleColorNeighbors(i, graph) {
+function createClauseSingleColorNeighbors(i, graph, variablesSet) {
   // e.g. i = 2, edges = 1, 3
   
   // e.g. [2, 1, 3]
@@ -106,11 +106,20 @@ function createClauseSingleColorNeighbors(i, graph) {
 
   // repeat for each color
   for (let j = 1; j <= 3; j++) {
-    mustHaveColorClause.push(`${i}${j}`);
+    const mustHaveColorClauseVariable = `${i}${j}`;
+
+    variablesSet.add(mustHaveColorClauseVariable);
+    mustHaveColorClause.push(mustHaveColorClauseVariable);
 
     allClauses.push(
       ...sampleClauses.map(
-        sampleClause => sampleClause.map(vertex => `${vertex}${j}`)
+        sampleClause => sampleClause.map(vertex => {
+          const singleColorNeighborClauseVariable = `${vertex}${j}`;
+
+          variablesSet.add(singleColorNeighborClauseVariable);
+
+          return singleColorNeighborClauseVariable;
+        })
       )
     );
   }
@@ -136,22 +145,50 @@ function hexagonColoring(verticesQt, connections) {
   }
 
   // Default form assumes Xij = i vertex, j color
-  const clauses = new Set();
+  const clausesSet = new Set();
 
   const graph = buildGraph(verticesQt);
   createConnections(graph, connections);
 
+  const variablesSet = new Set();
+
   for (let i = 1; i <= verticesQt; i++) {
-    const newClauses = createClauseSingleColorNeighbors(i, graph);
+    const newClauses = createClauseSingleColorNeighbors(i, graph, variablesSet);
 
     newClauses.forEach(newClause => {
-      clauses.add(`${newClause.join(' ')} 0`);
+      clausesSet.add(`${newClause.join(' ')}`);
     });
   }
 
+  // Reduce variables to use less numbers
+  const parsedClauses = [];
+  const variablesMap = {};
+
+  Array.from(variablesSet).forEach((variable, i) => {
+    variablesMap[variable] = i + 1;
+  });
+
+  let highestVar = 0;
+
+  clausesSet.forEach(clause => {
+    const parsedClause = clause.split(' ').map(clauseVariable => {
+      const hasMinus = clauseVariable.indexOf('-') > -1;
+      const sanitizedVariable = clauseVariable.replace('-', '');
+      const variableInt = parseInt(variablesMap[sanitizedVariable]);
+
+      if (variableInt > highestVar) {
+        highestVar = variableInt;
+      }
+
+      return `${hasMinus ? '-' : ''}${variableInt}`;
+    });
+
+    parsedClauses.push(`${parsedClause.join(' ')} 0`);
+  });
+
   const SATInput = [
-    `${clauses.size} ${verticesQt}3`,
-    ...Array.from(clauses),
+    `${parsedClauses.length} ${highestVar}`,
+    ...parsedClauses,
   ];
 
   return SATInput;
