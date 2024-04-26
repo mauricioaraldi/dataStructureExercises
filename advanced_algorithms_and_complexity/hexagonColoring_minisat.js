@@ -4,19 +4,13 @@
 //                1 2
 //                2 3
 //                1 3
-// Output: Boolean CNF. If possible to color vertices of input graph in 3 colors such that any two connected are of different colors,
-//    it is SAT. Number of vars in formula is min 1 and max 3000. Number of clauses is min 1 and max 5000. First line, integers C and V
-//    (number of clauses in formula and number of variables). Next C lines, description of a single clause. Each clause has a form
-//    (x4 OR x1 OR x8). For k terms (in the example, k = 3 for x4, x1 and x8), output first k terms and then 0 in the end (in the
-//    example, “4 − 1 8 0”). Each term as integer number. Variables x1, x2, ... , Xv as numbers 1, 2, ... , V. Output 3 negations
-//    of variables x1, x2, ... , xV as numbers −1, −2, ... , −V. Each number other than the last one in each line must be a non-zero
-//    integer between −V and V where V is total number of variables specified in the first line of the output. Ensure 1 <= C <= 5000 and
-//    1 <= V <= 3000. If there are many different formulas, you can output any one of them.
-// Example output: 1 1
-//                 1 -1 0
+// Output: SATISFIABLE or UNSATISFIABLE
+// Example output: SATISFIABLE
 
 let VERBOSE = false;
 
+const fs = require('fs');
+const childProcess = require('child_process');
 const readline = require('readline');
 
 const rl = readline.createInterface({
@@ -46,8 +40,9 @@ const readLines = () => {
       if (!--n) {
         rl.removeListener('line', readConnection);
 
-        process.stdout.write(hexagonColoring(verticesQt, connections).join('\n'));
+        const result = hexagonColoring(verticesQt, connections);
 
+        process.stdout.write(result);
         process.exit();
       }
     };
@@ -150,11 +145,39 @@ function hexagonColoring(verticesQt, connections) {
   }
 
   const SATInput = [
-    `${clauses.size} ${verticesQt}3`,
+    `p cnf ${verticesQt}3 ${clauses.size}`,
     ...Array.from(clauses),
-  ];
+  ].join('\n');
+  let execOutput = undefined;
 
-  return SATInput;
+  try {
+    const FILENAME = 'sat_input.txt';
+
+    fs.writeFileSync(FILENAME, SATInput);
+
+    execOutput = childProcess.execSync(
+      `minisat "${FILENAME}"`,
+      { encoding: 'utf8' }
+    );
+  } catch (err) {
+    // err.status
+    // 10 = SATISFIABLE
+    // 20 = UNSATISFIABLE
+    if (err.status && [10, 20].indexOf(err.status) > -1 && err.stdout) {
+      execOutput = err.stdout;
+    } else {
+      console.error(err);
+    }
+  }
+
+  if (!execOutput) {
+    console.error('No exec output!');
+    return;
+  }
+
+  const result = execOutput.trim().split('\n').slice(-1)[0];
+
+  return result;
 }
 
 function test(outputType, onlyTest) {
@@ -169,10 +192,7 @@ function test(outputType, onlyTest) {
           [1, 3],
         ]
       ),
-      expected: [
-        [1, 1],
-        [1, -1, 0],
-      ]
+      expected: 'SATISFIABLE',
     },
     {
       id: 2,
@@ -187,11 +207,7 @@ function test(outputType, onlyTest) {
           [3, 4],
         ]
       ),
-      expected: [
-        [2, 1],
-        [1, 0],
-        [-1, 0],
-      ]
+      expected: 'UNSATISFIABLE',
     },
     {
       id: 3,
@@ -846,7 +862,7 @@ function test(outputType, onlyTest) {
           [7, 236],
         ]
       ),
-      expected: []
+      expected: [],
     },
   ];
 
@@ -859,23 +875,27 @@ function test(outputType, onlyTest) {
     process.exit();
   }
 
-  testCases.forEach(testCase => {
-    const result = testCase.run();
+  const testCasesPromises = testCases.map(testCase => testCase.run());
 
-    if (outputType === 'RESULT') {
-      console.log(result);
-    } else if (outputType === 'TEST') {
-      if (result.join('|') === testCase.expected.join('|')) {
-        console.log(`[V] Passed test ${testCase.id}`);
-      } else {
-        console.log(`[X] Failed test ${testCase.id}`);
-        console.log(`Expected: ${testCase.expected.join('|')}`);
-        console.log(`Got: ${result.join('|')}`);
+  Promise.all(testCasesPromises).then(results => {
+    results.forEach((result, i) => {
+      const testCase = testCases[i];
+
+      if (outputType === 'RESULT') {
+        console.log(result);
+      } else if (outputType === 'TEST') {
+        if (result === testCase.expected) {
+          console.log(`[V] Passed test ${testCase.id}`);
+        } else {
+          console.log(`[X] Failed test ${testCase.id}`);
+          console.log(`Expected: ${testCase.expected}`);
+          console.log(`Got: ${result}`);
+        }
       }
-    }
-  });
+    });
 
-  process.exit();
+    process.exit();
+  });
 }
 
 if (process && process.argv && process.argv.includes('-t')) {
