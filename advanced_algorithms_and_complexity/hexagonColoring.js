@@ -113,13 +113,7 @@ function createClauseSingleColorNeighbors(i, graph, variablesSet) {
 
     allClauses.push(
       ...sampleClauses.map(
-        sampleClause => sampleClause.map(vertex => {
-          const singleColorNeighborClauseVariable = `${vertex}${j}`;
-
-          variablesSet.add(singleColorNeighborClauseVariable);
-
-          return singleColorNeighborClauseVariable;
-        })
+        sampleClause => sampleClause.map(vertex => `${vertex}${j}`)
       )
     );
   }
