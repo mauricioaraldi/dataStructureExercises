@@ -79,46 +79,24 @@ function buildGraph(verticesQt) {
 // Each neighbor vertex can only have one color
 function createClauseSingleColorNeighbors(i, graph, variablesSet) {
   // e.g. i = 2, edges = 1, 3
-  
-  // e.g. [2, 1, 3]
-  const vertexAndNeighbors = [i, ...Array.from(graph[i].edges)];
-  const sampleClauses = [];
+
   const allClauses = [];
 
-  vertexAndNeighbors.sort();
+  // Must have color
+  variablesSet.add(`${i}_1`);
+  variablesSet.add(`${i}_2`);
+  variablesSet.add(`${i}_3`);
 
-  // e.g. [1, 2, 3]
-  sampleClauses.push([...vertexAndNeighbors]);
+  allClauses.push([`${i}_1`, `${i}_2`, `${i}_3`]);
 
-  //Guarantees only one of each neighbors to be true
-  vertexAndNeighbors.forEach((vertex, index) => {
-    if (index === vertexAndNeighbors.length - 1) {
-      return;
-    }
+  // No same color between neighbors
+  Array.from(graph[i].edges).forEach(edge => {
+    const sortedNeighbors = [i, edge].sort();
 
-    vertexAndNeighbors.slice(index + 1).forEach((neighborVertex) => {
-      // e.g. [-1, -2] [-1, -3] [-2, -3]
-      sampleClauses.push([-vertex, -neighborVertex]);
-    });
+    allClauses.push(sortedNeighbors.map(v => `-${v}_1`));
+    allClauses.push(sortedNeighbors.map(v => `-${v}_2`));
+    allClauses.push(sortedNeighbors.map(v => `-${v}_3`));
   });
-
-  const mustHaveColorClause = [];
-
-  // repeat for each color
-  for (let j = 1; j <= 3; j++) {
-    const mustHaveColorClauseVariable = `${i}${j}`;
-
-    variablesSet.add(mustHaveColorClauseVariable);
-    mustHaveColorClause.push(mustHaveColorClauseVariable);
-
-    allClauses.push(
-      ...sampleClauses.map(
-        sampleClause => sampleClause.map(vertex => `${vertex}${j}`)
-      )
-    );
-  }
-
-  allClauses.push(mustHaveColorClause);
 
   return allClauses;
 }
@@ -144,6 +122,7 @@ function hexagonColoring(verticesQt, connections) {
   const graph = buildGraph(verticesQt);
   createConnections(graph, connections);
 
+  // Used to minify variables
   const variablesSet = new Set();
 
   for (let i = 1; i <= verticesQt; i++) {
@@ -879,6 +858,36 @@ function test(outputType, onlyTest) {
       ),
       expected: []
     },
+    {
+      id: 4,
+      run: () => hexagonColoring(
+        6,
+        [
+          [1, 2],
+          [1, 3],
+          [2, 4],
+          [3, 5],
+          [6, 4],
+          [6, 5],
+        ]
+      ),
+      expected: []
+    },
+    {
+      id: 5,
+      run: () => hexagonColoring(
+        4,
+        [
+          [1, 2],
+          [1, 3],
+          [1, 4],
+          [2, 3],
+          [2, 4],
+          [3, 4],
+        ]
+      ),
+      expected: []
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -894,7 +903,7 @@ function test(outputType, onlyTest) {
     const result = testCase.run();
 
     if (outputType === 'RESULT') {
-      console.log(result);
+      console.log(result.join('\n'));
     } else if (outputType === 'TEST') {
       if (result.join('|') === testCase.expected.join('|')) {
         console.log(`[V] Passed test ${testCase.id}`);

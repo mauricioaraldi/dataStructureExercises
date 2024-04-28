@@ -72,45 +72,26 @@ function buildGraph(verticesQt) {
 }
 
 // Each neighbor vertex can only have one color
-function createClauseSingleColorNeighbors(i, graph) {
+function createClauseSingleColorNeighbors(i, graph, variablesSet) {
   // e.g. i = 2, edges = 1, 3
-  
-  // e.g. [2, 1, 3]
-  const vertexAndNeighbors = [i, ...Array.from(graph[i].edges)];
-  const sampleClauses = [];
+
   const allClauses = [];
 
-  vertexAndNeighbors.sort();
+  // Must have color
+  variablesSet.add(`${i}_1`);
+  variablesSet.add(`${i}_2`);
+  variablesSet.add(`${i}_3`);
 
-  // e.g. [1, 2, 3]
-  sampleClauses.push([...vertexAndNeighbors]);
+  allClauses.push([`${i}_1`, `${i}_2`, `${i}_3`]);
 
-  //Guarantees only one of each neighbors to be true
-  vertexAndNeighbors.forEach((vertex, index) => {
-    if (index === vertexAndNeighbors.length - 1) {
-      return;
-    }
+  // No same color between neighbors
+  Array.from(graph[i].edges).forEach(edge => {
+    const sortedNeighbors = [i, edge].sort();
 
-    vertexAndNeighbors.slice(index + 1).forEach((neighborVertex) => {
-      // e.g. [-1, -2] [-1, -3] [-2, -3]
-      sampleClauses.push([-vertex, -neighborVertex]);
-    });
+    allClauses.push(sortedNeighbors.map(v => `-${v}_1`));
+    allClauses.push(sortedNeighbors.map(v => `-${v}_2`));
+    allClauses.push(sortedNeighbors.map(v => `-${v}_3`));
   });
-
-  const mustHaveColorClause = [];
-
-  // repeat for each color
-  for (let j = 1; j <= 3; j++) {
-    mustHaveColorClause.push(`${i}${j}`);
-
-    allClauses.push(
-      ...sampleClauses.map(
-        sampleClause => sampleClause.map(vertex => `${vertex}${j}`)
-      )
-    );
-  }
-
-  allClauses.push(mustHaveColorClause);
 
   return allClauses;
 }
@@ -131,23 +112,52 @@ function hexagonColoring(verticesQt, connections) {
   }
 
   // Default form assumes Xij = i vertex, j color
-  const clauses = new Set();
+  const clausesSet = new Set();
 
   const graph = buildGraph(verticesQt);
   createConnections(graph, connections);
 
+  const variablesSet = new Set();
+
   for (let i = 1; i <= verticesQt; i++) {
-    const newClauses = createClauseSingleColorNeighbors(i, graph);
+    const newClauses = createClauseSingleColorNeighbors(i, graph, variablesSet);
 
     newClauses.forEach(newClause => {
-      clauses.add(`${newClause.join(' ')} 0`);
+      clausesSet.add(`${newClause.join(' ')}`);
     });
   }
 
+  // Reduce variables to use less numbers
+  const parsedClauses = [];
+  const variablesMap = {};
+
+  Array.from(variablesSet).forEach((variable, i) => {
+    variablesMap[variable] = i + 1;
+  });
+
+  let highestVar = 0;
+
+  clausesSet.forEach(clause => {
+    const parsedClause = clause.split(' ').map(clauseVariable => {
+      const hasMinus = clauseVariable.indexOf('-') > -1;
+      const sanitizedVariable = clauseVariable.replace('-', '');
+      const variableInt = parseInt(variablesMap[sanitizedVariable]);
+
+      if (variableInt > highestVar) {
+        highestVar = variableInt;
+      }
+
+      return `${hasMinus ? '-' : ''}${variableInt}`;
+    });
+
+    parsedClauses.push(`${parsedClause.join(' ')} 0`);
+  });
+
   const SATInput = [
-    `p cnf ${verticesQt}3 ${clauses.size}`,
-    ...Array.from(clauses),
-  ].join('\n');
+    `p cnf ${highestVar} ${parsedClauses.length}`,
+    ...parsedClauses,
+  ].join(' \n');
+
   let execOutput = undefined;
 
   try {
