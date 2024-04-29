@@ -85,19 +85,29 @@ function sanitizeConnections(connections) {
   return Array.from(sanitizedConnections).map(connection => connection.split(' '));
 }
 
-function createClauseEdgeOneDirection(i, graph) {
+function createClauseAtMostTwoEdges(vertex, graph) {
   const usedVariables = [];
   const allClauses = [];
 
-  Array.from(graph[i].edges).forEach(edge => {
-    const corridorGoing = `${i}_${edge}`;
-    const corridorComing = `${edge}_${i}`;
+  const neighbors = Array.from(graph[vertex].edges);
 
-    usedVariables.push(corridorGoing);
-    usedVariables.push(corridorComing);
+  neighbors.forEach((neighbor, neighborIndex) => {
+    const outcomingVariable = `${vertex}_${neighbor}`;
+    const incomingVariable = `${neighbor}_${vertex}`;
 
-    allClauses.push([corridorGoing, corridorComing]);
-    allClauses.push([`-${corridorGoing}`, `-${corridorComing}`]);
+    usedVariables.push(outcomingVariable);
+    usedVariables.push(incomingVariable);
+
+    neighbors.slice(neighborIndex + 1).forEach(nextNeighbor => {
+      const outcomingNextVariable = `${vertex}_${nextNeighbor}`;
+      const incomingNextVariable = `${nextNeighbor}_${vertex}`;
+
+      usedVariables.push(outcomingNextVariable);
+      usedVariables.push(incomingNextVariable);
+
+      allClauses.push([`-${outcomingVariable}`, `-${outcomingNextVariable}`]);
+      allClauses.push([`-${incomingVariable}`, `-${incomingNextVariable}`]);
+    });
   });
 
   return {
@@ -106,40 +116,24 @@ function createClauseEdgeOneDirection(i, graph) {
   };
 }
 
-function createClauseOnlyOneOutgoing(i, graph) {
+function createClauseAtLeastOneEdge(vertex, graph) {
   const usedVariables = [];
   const allClauses = [];
 
-  const oneOutgoingNeighborClause = [];
-  const oneIncomingNeighborClause = [];
+  const atLeastOneEdgeClause = [];
 
-  const neighbors = Array.from(graph[i].edges);
+  Array.from(graph[vertex].edges).forEach(neighbor => {
+    const outcomingVariable = `${vertex}_${neighbor}`;
+    const incomingVariable = `${neighbor}_${vertex}`;
 
-  if (neighbors.length <= 2) {
-    return {
-      variables: [],
-      clauses: [],
-    };
-  }
-
-  neighbors.forEach((edge, index) => {
-    const outgoingVariable = `${i}_${edge}`;
-    const incomingVariable = `${edge}_${i}`;
-
-    usedVariables.push(outgoingVariable);
+    usedVariables.push(outcomingVariable);
     usedVariables.push(incomingVariable);
 
-    oneOutgoingNeighborClause.push(outgoingVariable);
-    oneIncomingNeighborClause.push(incomingVariable);
-
-    neighbors.slice(index + 1).forEach(nextNeighbor => {
-      allClauses.push([`-${i}_${edge}`, `-${i}_${nextNeighbor}`]);
-      allClauses.push([`-${edge}_${i}`, `-${nextNeighbor}_${i}`]);
-    });
+    atLeastOneEdgeClause.push(outcomingVariable);
+    atLeastOneEdgeClause.push(incomingVariable);
   });
 
-  allClauses.push(oneOutgoingNeighborClause);
-  allClauses.push(oneIncomingNeighborClause);
+  allClauses.push(atLeastOneEdgeClause);
 
   return {
     variables: usedVariables,
@@ -173,13 +167,13 @@ function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
   const variablesSet = new Set();
 
   for (let i = 1; i <= verticesQt; i++) {
-    const edgeOneDirectionObj = createClauseEdgeOneDirection(i, graph);
-    edgeOneDirectionObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
-    edgeOneDirectionObj.variables.forEach(variable => variablesSet.add(variable));
+    const atMostTwoEdgesObj = createClauseAtMostTwoEdges(i, graph);
+    atMostTwoEdgesObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    atMostTwoEdgesObj.variables.forEach(variable => variablesSet.add(variable));
 
-    const oneOutgoingObj = createClauseOnlyOneOutgoing(i, graph);
-    oneOutgoingObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
-    oneOutgoingObj.variables.forEach(variable => variablesSet.add(variable));
+    const atLeastOneEdge = createClauseAtLeastOneEdge(i, graph);
+    atLeastOneEdge.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    atLeastOneEdge.variables.forEach(variable => variablesSet.add(variable));
   }
 
   // Reduce variables to use less numbers
@@ -208,7 +202,9 @@ function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
     parsedClauses.push(`${parsedClause.join(' ')} 0`);
   });
 
-  console.log(clausesSet);
+  if (VERBOSE) {
+    console.log(clausesSet);
+  }
 
   if (asCNF) {
     const SATInput = [
@@ -372,7 +368,7 @@ function test(outputType, onlyTest) {
         ],
         outputType === 'MINISAT'
       ),
-      expected: 'UNSATISFIABLE'
+      expected: 'SATISFIABLE'
     },
     {
       id: 6,
@@ -406,6 +402,24 @@ function test(outputType, onlyTest) {
         outputType === 'MINISAT'
       ),
       expected: 'SATISFIABLE'
+    },
+    {
+      id: 8,
+      run: () => hamiltonianPathToSAT(
+        6,
+        [
+          [1, 2],
+          [1, 3],
+          [1, 4],
+          [1, 5],
+          [6, 2],
+          [6, 3],
+          [6, 4],
+          [6, 5],
+        ],
+        outputType === 'MINISAT'
+      ),
+      expected: 'UNSATISFIABLE'
     },
   ];
 
@@ -474,11 +488,11 @@ function test(outputType, onlyTest) {
     if (outputType === 'RESULT') {
       console.log(result.join('\n'));
     } else if (outputType === 'TEST') {
-      if (result.join('|') === testCase.expected.join('|')) {
+      if (result.join('|') === testCase.expected) {
         console.log(`[V] Passed test ${testCase.id}`);
       } else {
         console.log(`[X] Failed test ${testCase.id}`);
-        console.log(`Expected: ${testCase.expected.join('|')}`);
+        console.log(`Expected: ${testCase.expected}`);
         console.log(`Got: ${result.join('|')}`);
       }
     }
