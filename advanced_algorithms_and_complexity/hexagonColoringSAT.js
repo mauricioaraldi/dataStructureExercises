@@ -69,7 +69,6 @@ function buildGraph(verticesQt) {
   for (let i = 1; i <= verticesQt; i++) {
     graph[i] = {
       edges: new Set(),
-      color: undefined,
     };
   }
 
