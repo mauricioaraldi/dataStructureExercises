@@ -85,30 +85,24 @@ function sanitizeConnections(connections) {
   return Array.from(sanitizedConnections).map(connection => connection.split(' '));
 }
 
-function createClauseAtMostTwoEdges(vertex, graph) {
+function createClauseVertexHasOnePosition(vertex, verticesQt) {
   const usedVariables = [];
   const allClauses = [];
 
-  const neighbors = Array.from(graph[vertex].edges);
+  const positionClause = [];
 
-  neighbors.forEach((neighbor, neighborIndex) => {
-    const outcomingVariable = `${vertex}_${neighbor}`;
-    const incomingVariable = `${neighbor}_${vertex}`;
+  for (let j = 1; j <= verticesQt; j++) {
+    const vertexPosVariable = `${vertex}_${j}`;
 
-    usedVariables.push(outcomingVariable);
-    usedVariables.push(incomingVariable);
+    usedVariables.push(`${vertexPosVariable}`);
+    positionClause.push(`${vertexPosVariable}`);
 
-    neighbors.slice(neighborIndex + 1).forEach(nextNeighbor => {
-      const outcomingNextVariable = `${vertex}_${nextNeighbor}`;
-      const incomingNextVariable = `${nextNeighbor}_${vertex}`;
+    for (let nextPos = j + 1; nextPos <= verticesQt; nextPos++) {
+      allClauses.push([`-${vertexPosVariable}`, `-${vertex}_${nextPos}`]);
+    }
+  }
 
-      usedVariables.push(outcomingNextVariable);
-      usedVariables.push(incomingNextVariable);
-
-      allClauses.push([`-${outcomingVariable}`, `-${outcomingNextVariable}`]);
-      allClauses.push([`-${incomingVariable}`, `-${incomingNextVariable}`]);
-    });
-  });
+  allClauses.push(positionClause);
 
   return {
     variables: usedVariables,
@@ -116,24 +110,35 @@ function createClauseAtMostTwoEdges(vertex, graph) {
   };
 }
 
-function createClauseAtLeastOneEdge(vertex, graph) {
+function createClauseAtNeighborsReach(vertex, verticesQt, graph) {
   const usedVariables = [];
   const allClauses = [];
 
-  const atLeastOneEdgeClause = [];
+  for (let j = 1; j < verticesQt; j++) {
+    const neighborsReachClause = [`-${vertex}_${j}`];
 
-  Array.from(graph[vertex].edges).forEach(neighbor => {
-    const outcomingVariable = `${vertex}_${neighbor}`;
-    const incomingVariable = `${neighbor}_${vertex}`;
+    Array.from(graph[vertex].edges).forEach(neighbor => {
+      neighborsReachClause.push(`${neighbor}_${j + 1}`);
+    });
 
-    usedVariables.push(outcomingVariable);
-    usedVariables.push(incomingVariable);
+    allClauses.push(neighborsReachClause);
+  }
 
-    atLeastOneEdgeClause.push(outcomingVariable);
-    atLeastOneEdgeClause.push(incomingVariable);
-  });
+  return {
+    variables: usedVariables,
+    clauses: allClauses,
+  };
+}
 
-  allClauses.push(atLeastOneEdgeClause);
+function createClauseOneVertexPerPosition(vertex, verticesQt, graph) {
+  const usedVariables = [];
+  const allClauses = [];
+
+  for (let j = 1; j <= verticesQt; j++) {
+    for (let i = vertex + 1; i <= verticesQt; i++) {
+      allClauses.push([`-${vertex}_${j}`, `-${i}_${j}`]);
+    }
+  }
 
   return {
     variables: usedVariables,
@@ -167,13 +172,17 @@ function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
   const variablesSet = new Set();
 
   for (let i = 1; i <= verticesQt; i++) {
-    const atMostTwoEdgesObj = createClauseAtMostTwoEdges(i, graph);
-    atMostTwoEdgesObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
-    atMostTwoEdgesObj.variables.forEach(variable => variablesSet.add(variable));
+    const vertexHasOnePositionObj = createClauseVertexHasOnePosition(i, verticesQt);
+    vertexHasOnePositionObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    vertexHasOnePositionObj.variables.forEach(variable => variablesSet.add(variable));
 
-    const atLeastOneEdge = createClauseAtLeastOneEdge(i, graph);
-    atLeastOneEdge.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
-    atLeastOneEdge.variables.forEach(variable => variablesSet.add(variable));
+    const oneVertexPerPositionObj = createClauseOneVertexPerPosition(i, verticesQt);
+    oneVertexPerPositionObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    oneVertexPerPositionObj.variables.forEach(variable => variablesSet.add(variable));
+
+    const atNeighborsReachObj = createClauseAtNeighborsReach(i, verticesQt, graph);
+    atNeighborsReachObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    atNeighborsReachObj.variables.forEach(variable => variablesSet.add(variable));
   }
 
   // Reduce variables to use less numbers
