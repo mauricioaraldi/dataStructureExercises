@@ -146,6 +146,42 @@ function createClauseOneVertexPerPosition(vertex, verticesQt, graph) {
   };
 }
 
+function createClauseOnlyOneFinalPos(verticesQt) {
+  const usedVariables = [];
+  const allClauses = [];
+
+  for (let i = 1; i <= verticesQt; i++) {
+    for (let ni = i + 1; ni <= verticesQt; ni++) {
+      allClauses.push([`-${i}_${4}`, `-${ni}_${4}`]);
+    }
+  }
+
+  return {
+    variables: usedVariables,
+    clauses: allClauses,
+  };
+}
+
+function createClausePositionHasVertex(verticesQt) {
+  const usedVariables = [];
+  const allClauses = [];
+
+  for (let j = 1; j <= verticesQt; j++) {
+    const positionClause = [];
+
+    for (let i = 1; i <= verticesQt; i++) {
+      positionClause.push(`${i}_${j}`);
+    }
+
+    allClauses.push(positionClause);
+  }
+
+  return {
+    variables: usedVariables,
+    clauses: allClauses,
+  };
+}
+
 function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
   if (!verticesQt || !connections) {
     console.error("Invalid input: No vertices or connections");
@@ -171,14 +207,22 @@ function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
   // Used to minify variables
   const variablesSet = new Set();
 
+  // const onlyOneFinalPosObj = createClauseOnlyOneFinalPos(verticesQt);
+  // onlyOneFinalPosObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+  // onlyOneFinalPosObj.variables.forEach(variable => variablesSet.add(variable));
+
+  const positionHasVertexObj = createClausePositionHasVertex(verticesQt);
+  positionHasVertexObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+  positionHasVertexObj.variables.forEach(variable => variablesSet.add(variable));
+
   for (let i = 1; i <= verticesQt; i++) {
     const vertexHasOnePositionObj = createClauseVertexHasOnePosition(i, verticesQt);
     vertexHasOnePositionObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
     vertexHasOnePositionObj.variables.forEach(variable => variablesSet.add(variable));
 
-    const oneVertexPerPositionObj = createClauseOneVertexPerPosition(i, verticesQt);
-    oneVertexPerPositionObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
-    oneVertexPerPositionObj.variables.forEach(variable => variablesSet.add(variable));
+    // const oneVertexPerPositionObj = createClauseOneVertexPerPosition(i, verticesQt);
+    // oneVertexPerPositionObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    // oneVertexPerPositionObj.variables.forEach(variable => variablesSet.add(variable));
 
     const atNeighborsReachObj = createClauseAtNeighborsReach(i, verticesQt, graph);
     atNeighborsReachObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
