@@ -60,8 +60,8 @@ const readLines = () => {
 
 function createConnections(graph, connections) {
   connections.forEach(([origin, destiny]) => {
-    graph[origin].edges.add(destiny);
-    graph[destiny].edges.add(origin);
+    graph[origin].edges.add(parseInt(destiny, 10));
+    graph[destiny].edges.add(parseInt(origin, 10));
   });
 }
 
@@ -85,35 +85,37 @@ function sanitizeConnections(connections) {
   return Array.from(sanitizedConnections).map(connection => connection.split(' '));
 }
 
-function createClauseOneOrTwoEdges(vertex, graph) {
+function createClauseEachVertexHasAPosition(vertex, verticesQt) {
+  const usedVariables = [];
+  const positionClause = [];
+
+  for (let j = 1; j <= verticesQt; j++) {
+    const vertexPositionVariable = `${vertex}_${j}`;
+
+    positionClause.push(vertexPositionVariable);
+  }
+
+  return {
+    variables: usedVariables,
+    clauses: [positionClause],
+  };
+}
+
+function createClauseEachPositionHasAVertex(verticesQt) {
   const usedVariables = [];
   const allClauses = [];
-  const neighbors = Array.from(graph[vertex].edges);
 
-  if (neighbors.length < 3) {
-    const atLeastOneEdgeClause = [`-${vertex}`];
+  for (let j = 1; j <= verticesQt; j++) {
+    const positionClause = [];
 
-    neighbors.forEach(neighbor => {
-      const variable = [vertex, neighbor].sort().join('_');
+    for (let i = 1; i <= verticesQt; i++) {
+      const vertexPositionVariable = `${i}_${j}`;
 
-      usedVariables.push(variable);
-      atLeastOneEdgeClause.push(variable);
-    });
-
-    allClauses.push(atLeastOneEdgeClause);
-  } else {
-    const atMostOneEdgeClause = [`-${vertex}`];
-
-    for (let i = 0; i < neighbors.length; i++) {
-      const neighbor = neighbors[i];
-      const atMostOneEdgeVariable = [vertex, neighbor].sort().join('_');
-
-      usedVariables.push(atMostOneEdgeVariable);
-
-      atMostOneEdgeClause.push(`-${atMostOneEdgeVariable}`);
+      usedVariables.push(vertexPositionVariable);
+      positionClause.push(vertexPositionVariable);
     }
 
-    allClauses.push(atMostOneEdgeClause);
+    allClauses.push(positionClause);
   }
 
   return {
@@ -122,14 +124,67 @@ function createClauseOneOrTwoEdges(vertex, graph) {
   };
 }
 
-function createClauseEachVertex(verticesQt) {
+function createClauseOnlyOneVertexPerPosition(verticesQt) {
+  const usedVariables = [];
+  const allClauses = [];
+
+  for (let j = 1; j <= verticesQt; j++) {
+    for (let i = 1; i <= verticesQt; i++) {
+      for (let nextI = i + 1; nextI <= verticesQt; nextI++) {
+        allClauses.push([`-${i}_${j}`, `-${nextI}_${j}`]);
+      }
+    }
+  }
+
+  return {
+    variables: usedVariables,
+    clauses: allClauses,
+  };
+}
+
+function createClauseOnlyOnePositionPerVertex(vertex, verticesQt) {
+  const usedVariables = [];
+  const allClauses = [];
+
+  for (let j = 1; j <= verticesQt; j++) {
+    for (let nextJ = j + 1; nextJ <= verticesQt; nextJ++) {
+      allClauses.push([`-${vertex}_${j}`, `-${vertex}_${nextJ}`]);
+    }
+  }
+
+  return {
+    variables: usedVariables,
+    clauses: allClauses,
+  };
+}
+
+function createClauseNonNeighborsNonAdjacents(vertex, graph, verticesQt) {
+  const nonNeighbors = [];
   const usedVariables = [];
   const allClauses = [];
 
   for (let i = 1; i <= verticesQt; i++) {
-    usedVariables.push(i);
-    allClauses.push([i]);
+    if (vertex === i) {
+      continue;
+    }
+
+    if (!graph[vertex].edges.has(i)) {
+      nonNeighbors.push(i);
+    }
   }
+
+  if (!nonNeighbors.length) {
+    return {
+      variables: [],
+      clauses: [],
+    };
+  }
+
+  nonNeighbors.forEach(nonNeighbor => {
+    for (let j = 1; j < verticesQt; j++) {
+      allClauses.push([`-${vertex}_${j}`, `-${nonNeighbor}_${j + 1}`]);
+    }
+  });
 
   return {
     variables: usedVariables,
@@ -162,14 +217,26 @@ function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
   // Used to minify variables
   const variablesSet = new Set();
 
-  const eachVertexObj = createClauseEachVertex(verticesQt);
-  eachVertexObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
-  eachVertexObj.variables.forEach(variable => variablesSet.add(variable));
+  const eachPositionHasAVertexObj = createClauseEachPositionHasAVertex(verticesQt);
+  eachPositionHasAVertexObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+  eachPositionHasAVertexObj.variables.forEach(variable => variablesSet.add(variable));
+
+  const onlyOneVertexPerPositionObj = createClauseOnlyOneVertexPerPosition(verticesQt);
+  onlyOneVertexPerPositionObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+  onlyOneVertexPerPositionObj.variables.forEach(variable => variablesSet.add(variable));
 
   for (let i = 1; i <= verticesQt; i++) {
-    const oneOrTwoEdgesObj = createClauseOneOrTwoEdges(i, graph);
-    oneOrTwoEdgesObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
-    oneOrTwoEdgesObj.variables.forEach(variable => variablesSet.add(variable));
+    const eachVertexHasAPositionObj = createClauseEachVertexHasAPosition(i, verticesQt);
+    eachVertexHasAPositionObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    eachVertexHasAPositionObj.variables.forEach(variable => variablesSet.add(variable));
+
+    const onlyOnePositionPerVertexObj = createClauseOnlyOnePositionPerVertex(i, verticesQt);
+    onlyOnePositionPerVertexObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    onlyOnePositionPerVertexObj.variables.forEach(variable => variablesSet.add(variable));
+
+    const nonNeighborsNonAdjacentsObj = createClauseNonNeighborsNonAdjacents(i, graph, verticesQt);
+    nonNeighborsNonAdjacentsObj.clauses.forEach(clause => clausesSet.add(`${clause.join(' ')}`));
+    nonNeighborsNonAdjacentsObj.variables.forEach(variable => variablesSet.add(variable));
   }
 
   // Reduce variables to use less numbers
