@@ -16,6 +16,7 @@
 //                 1 -1 0
 
 let VERBOSE = false;
+let USED_VARIABLES_QUANTITY = 0;
 
 const fs = require('fs');
 const childProcess = require('child_process');
@@ -35,8 +36,8 @@ const readLines = () => {
     const [verticesQt, edges] = line.split(' ').map(v => parseInt(v, 10));
     let n = edges;
 
-    if (edges === 0) {
-      process.stdout.write('0');
+    if (!n) {
+      hamiltonianPathToSAT(verticesQt, connections).forEach(line => process.stdout.write(`${line}\n`));
       process.exit();
     }
 
@@ -48,7 +49,7 @@ const readLines = () => {
       if (!--n) {
         rl.removeListener('line', readConnection);
 
-        process.stdout.write(hamiltonianPathToSAT(verticesQt, connections).join('\n'));
+        hamiltonianPathToSAT(verticesQt, connections).forEach(line => process.stdout.write(`${line}\n`));
 
         process.exit();
       }
@@ -193,7 +194,7 @@ function createClauseNonNeighborsNonAdjacents(vertex, graph, verticesQt) {
 }
 
 function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
-  if (!verticesQt || !connections) {
+  if (!verticesQt || connections === undefined) {
     console.error("Invalid input: No vertices or connections");
     return [];
   }
@@ -255,6 +256,8 @@ function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
       const sanitizedVariable = clauseVariable.replace('-', '');
       const variableInt = parseInt(variablesMap[sanitizedVariable]);
 
+      USED_VARIABLES_QUANTITY++;
+
       if (variableInt > highestVar) {
         highestVar = variableInt;
       }
@@ -267,6 +270,8 @@ function hamiltonianPathToSAT(verticesQt, connections, asCNF = false) {
 
   if (VERBOSE) {
     console.log(clausesSet);
+
+    console.log(`-> ${USED_VARIABLES_QUANTITY} variables used`);
   }
 
   if (asCNF) {
@@ -484,6 +489,15 @@ function test(outputType, onlyTest) {
           [6, 4],
           [6, 5],
         ],
+        outputType === 'MINISAT'
+      ),
+      expected: 'UNSATISFIABLE'
+    },
+    {
+      id: 9,
+      run: () => hamiltonianPathToSAT(
+        5,
+        [],
         outputType === 'MINISAT'
       ),
       expected: 'UNSATISFIABLE'
