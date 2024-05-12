@@ -53,7 +53,7 @@ const readLines = () => {
 function createConnections(graph, connections) {
   connections.forEach(([origin, destiny]) => {
     graph[origin].edges.add(`${destiny}`);
-    graph[destiny].invertedEdges.add(`${origin}`);
+    graph[destiny].reverseEdges.add(`${origin}`);
   });
 }
 
@@ -63,13 +63,13 @@ function buildGraph(verticesQt) {
   for (let i = 1; i <= verticesQt; i++) {
     graph[i] = {
       edges: new Set(),
-      invertedEdges: new Set(),
+      reverseEdges: new Set(),
       visited: false,
     };
 
     graph[`-${i}`] = {
       edges: new Set(),
-      invertedEdges: new Set(),
+      reverseEdges: new Set(),
       visited: false,
     };
   }
@@ -112,6 +112,8 @@ function explore(graph, v, connectedComponents = []) {
 
   connectedComponents.push(v);
 
+  console.log(v);
+
   graph[v].edges.forEach(neighbor => {
     if (graph[neighbor].visited) {
       return;
@@ -123,21 +125,54 @@ function explore(graph, v, connectedComponents = []) {
   return connectedComponents;
 }
 
-function getConnectedComponents(graph) {
-  let connectedComponents = [];
+function getConnectedComponent(graph, verticesQt, dfsOrder) {
+  let node = dfsOrder.pop();
 
-  Object.keys(graph).forEach(node => {
-    if (graph[node].visited) {
+  while (graph[node].visited) {
+    if (!dfsOrder.length) {
       return;
     }
 
-    connectedComponents.push(explore(graph, node));
-  });
+    node = dfsOrder.pop();
+  }
+
+  return explore(graph, node);
+}
+
+function getConnectedComponents(graph, verticesQt) {
+  const graphDfs = dfs(graph).reverse();
+  const connectedComponents = [];
+
+  while (graphDfs.length) {
+    const connectedComponent = getConnectedComponent(graph, verticesQt, graphDfs);
+
+    if (connectedComponent) {
+      connectedComponents.push(connectedComponent);
+    }
+  }
+
+  console.log(connectedComponents);
 
   return connectedComponents;
 }
 
-function dfs(graph, stack, used, order) {
+function dfs(graph) {
+  const dfsOrder = [];
+  const dfsUsed = new Set();
+  const graphKeys = sortWithNegativeKeys(Object.keys(graph)).reverse();
+
+  graphKeys.forEach(key => {
+    const stack = [];
+
+    stack.push(key);
+
+    dfsExplore(graph, stack, dfsUsed, dfsOrder);
+  });
+
+  return dfsOrder;
+}
+
+function dfsExplore(graph, stack, used, order) {
   const visited = new Set();
 
   while(stack.length) {
@@ -158,10 +193,10 @@ function dfs(graph, stack, used, order) {
       continue;
     }
 
-    if (graph[current] && graph[current].edges.size) {
+    if (graph[current].reverseEdges.size) {
         visited.add(current);
 
-        graph[current].edges.forEach(edge => {
+        graph[current].reverseEdges.forEach(edge => {
           if (!used.has(edge)) {
             stack.push(edge);
           }
@@ -176,24 +211,34 @@ function dfs(graph, stack, used, order) {
   }
 }
 
-function toposort(graph) {
-  const order = [];
-  const used = new Set();
+function sortWithNegativeKeys(keys) {
+  return keys.sort((a, b) => {
+    const positiveA = Math.abs(parseInt(a, 10));
+    const positiveB = Math.abs(parseInt(b, 10));
 
-  for (const k in graph) {
-    const stack = [];
+    if (positiveA < positiveB) {
+      return -1;
+    } else if (positiveA > positiveB) {
+      return 1;
+    }
 
-    stack.push(k);
+    if (a < b) {
+      return -1;
+    } else if (a > b) {
+      return 1;
+    }
 
-    dfs(graph, stack, used, order);
-  }
-
-  return order.reverse();
+    return 0;
+  });
 }
 
 function solver(variablesQt, clauses) {
   const graph = buildImplicationGraph(variablesQt, clauses);
-  const connectedComponents = getConnectedComponents(graph);
+  const connectedComponents = getConnectedComponents(graph, variablesQt * 2);
+
+  if (VERBOSE) {
+    console.log('Graph', '\n ', graph);
+  }
 
   for (let i = 1; i <= variablesQt; i++) {
     for (let j = 0; j < connectedComponents.length; j++) {
@@ -206,34 +251,15 @@ function solver(variablesQt, clauses) {
     }
   }
 
-  // const connectedComponentsTopoSorted = [];
-
-  // connectedComponents.forEach(connectedComponent => {
-  //   const connectedComponentGraph = {};
-
-  //   connectedComponent.forEach(v => {
-  //     connectedComponentGraph[v] = graph[v];
-  //   });
-
-  //   connectedComponentsTopoSorted.push(toposort(connectedComponentGraph));
-  // });
-
   // If literals of C are not assigned yet:
   //    set all of them to 1
   //    set their negations to 0
 
-  const sortedConnectedComponent = connectedComponents[0].sort((a, b) => {
-    const positiveA = Math.abs(parseInt(a, 10));
-    const positiveB = Math.abs(parseInt(a, 10));
+  if (VERBOSE) {
+    console.log('Connected components:', '\n ', connectedComponents);
+  }
 
-    if (positiveA < positiveB) {
-      return -1;
-    } else if (positiveA > positiveB) {
-      return 1;
-    }
-
-    return 0;
-  }).join(' ');
+  const sortedConnectedComponent = sortWithNegativeKeys(connectedComponents[0]).join(' ');
 
   return [
     'SATISFIABLE',
