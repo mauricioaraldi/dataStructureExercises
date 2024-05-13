@@ -1,10 +1,10 @@
 // Input: First line "n m", where n is number of vertices and m number of edges. After this,
 // m lines with "u v", where both are connected vertices of the directed graph.
-// Example input: 4 2
+// Example input: 3 2
 //                1 2
 //                3 2
 // Output: Number of connected components of the graph
-// Example output: 2
+// Example output: 3
 
 let VERBOSE = false;
 
@@ -181,13 +181,13 @@ function test(outputType, onlyTest) {
     {
       id: 1,
       run: () => checkConnectedComponents(
-        4,
+        3,
         [
           [1, 2],
           [3, 2],
         ]
       ),
-      expected: 2
+      expected: 3
     },
     {
       id: 2,
@@ -229,6 +229,39 @@ function test(outputType, onlyTest) {
         ]
       ),
       expected: 5
+    },
+    {
+      id: 4,
+      run: () => checkConnectedComponents(
+        8,
+        [
+          [1, 2],
+          [2, 4],
+          [3, 2],
+          [4, 3],
+          [4, 5],
+          [5, 6],
+          [6, 8],
+          [8, 7],
+          [7, 5],
+        ]
+      ),
+      expected: 3
+    },
+    {
+      id: 5,
+      run: () => checkConnectedComponents(
+        6,
+        [
+          [1, 2],
+          [2, 6],
+          [3, 1],
+          [3, 5],
+          [4, 6],
+          [5, 4],
+        ]
+      ),
+      expected: 6
     },
   ];
 

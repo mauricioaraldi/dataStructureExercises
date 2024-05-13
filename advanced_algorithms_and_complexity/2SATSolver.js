@@ -112,8 +112,6 @@ function explore(graph, v, connectedComponents = []) {
 
   connectedComponents.push(v);
 
-  console.log(v);
-
   graph[v].edges.forEach(neighbor => {
     if (graph[neighbor].visited) {
       return;
@@ -140,7 +138,7 @@ function getConnectedComponent(graph, verticesQt, dfsOrder) {
 }
 
 function getConnectedComponents(graph, verticesQt) {
-  const graphDfs = dfs(graph).reverse();
+  const graphDfs = dfs(graph);
   const connectedComponents = [];
 
   while (graphDfs.length) {
@@ -150,8 +148,6 @@ function getConnectedComponents(graph, verticesQt) {
       connectedComponents.push(connectedComponent);
     }
   }
-
-  console.log(connectedComponents);
 
   return connectedComponents;
 }
@@ -238,6 +234,7 @@ function solver(variablesQt, clauses) {
 
   if (VERBOSE) {
     console.log('Graph', '\n ', graph);
+    console.log('Connected components', '\n ', connectedComponents);
   }
 
   for (let i = 1; i <= variablesQt; i++) {
@@ -254,10 +251,6 @@ function solver(variablesQt, clauses) {
   // If literals of C are not assigned yet:
   //    set all of them to 1
   //    set their negations to 0
-
-  if (VERBOSE) {
-    console.log('Connected components:', '\n ', connectedComponents);
-  }
 
   const sortedConnectedComponent = sortWithNegativeKeys(connectedComponents[0]).join(' ');
 
