@@ -48,6 +48,8 @@ function buildGraph(verticesQt) {
   for (let i = 1; i <= verticesQt; i++) {
     graph[i] = {
       edges: new Set(),
+      reverseEdges: new Set(),
+      visited: false,
     };
   }
 
@@ -57,45 +59,53 @@ function buildGraph(verticesQt) {
 function createConnections(graph, connections) {
   connections.forEach(([origin, destiny]) => {
     graph[origin].edges.add(destiny);
+    graph[destiny].reverseEdges.add(origin);
   });
 }
 
-function dfs(graph, stack, used, order) {
-  const visited = new Set();
+function dfs(graph, vertexId, order) {
+  const vertex = graph[vertexId];
 
-  while(stack.length) {
-    const current = stack[stack.length - 1];
+  if (vertex.visited) {
+    return order;
+  }
 
-    if (used.has(current)) {
-      stack.pop();
-      continue;
+  vertex.visited = true;
+
+  if (vertex.edges.size) {
+    vertex.edges.forEach(edge => {
+      if (!graph[edge].visited) {
+        dfs(graph, edge, order);
+      }
+    });
+  }
+
+  order.push(vertexId);
+
+  return order;
+}
+
+function getStartingPoint(graph) {
+  let vertex = Object.keys(graph).find(key => !graph[key].visited);
+
+  if (!vertex) {
+    return undefined;
+  }
+
+  while (true) {
+    if (!graph[vertex].reverseEdges.size) {
+      return vertex;
     }
 
-    if (visited.has(current)) {
-      order.push(current);
+    const nextVertex = Array.from(graph[vertex].reverseEdges).find(
+      edge => !graph[edge].visited
+    );
 
-      stack.pop();
-
-      used.add(current);
-
-      continue;
+    if (!nextVertex) {
+      return vertex;
     }
 
-    if (graph[current].edges.size) {
-        visited.add(current);
-
-        graph[current].edges.forEach(edge => {
-          if (!used.has(edge)) {
-            stack.push(edge);
-          }
-        });
-    } else {
-      order.push(current);
-
-      stack.pop();
-
-      used.add(current);
-    }
+    vertex = nextVertex;
   }
 }
 
@@ -104,18 +114,15 @@ function toposort(verticesQt, connections) {
 
   createConnections(graph, connections);
 
-  const order = [];
-  const used = new Set();
+  let startingPoint = getStartingPoint(graph);
+  let dfsOrder = [];
 
-  for(let i = 1; i <= verticesQt; i++) {
-    const stack = [];
-
-    stack.push(i);
-
-    dfs(graph, stack, used, order);
+  while (startingPoint) {
+    dfsOrder = dfs(graph, startingPoint, dfsOrder);
+    startingPoint = getStartingPoint(graph);
   }
 
-  return order.reverse().join(' ');
+  return dfsOrder.reverse();
 }
 
 function test(outputType, onlyTest) {
@@ -131,9 +138,9 @@ function test(outputType, onlyTest) {
           [3, 5],
           [4, 6],
           [5, 4],
-        ]
+        ],
       ),
-      expected: '1 3 5 2 4 6'
+      expected: '3 5 4 1 2 6'
     },
   ];
 
@@ -147,7 +154,7 @@ function test(outputType, onlyTest) {
   }
 
   testCases.forEach(testCase => {
-    const result = testCase.run();
+    const result = testCase.run().join(' ');
 
     if (outputType === 'RESULT') {
       console.log(result);

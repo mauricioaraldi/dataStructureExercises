@@ -4,7 +4,7 @@
 //                1 2
 //                4 1
 //                3 1
-// Output: Any topological ordering of the vertices
+// Output: Any dfs ordering of the vertices
 // Example output: 4 3 1 2
 
 const readline = require('readline');
@@ -23,7 +23,7 @@ const readLines = () => {
     let n = edges;
 
     if (edges === 0) {
-      process.stdout.write(checkConnectedComponents(vertices, connections).toString());
+      process.stdout.write(solve(vertices, connections).toString());
       process.exit();
     }
 
@@ -33,7 +33,7 @@ const readLines = () => {
       connections.push(link);
 
       if (!--n) {
-        process.stdout.write(toposort(vertices, connections).toString());
+        process.stdout.write(solve(vertices, connections).toString());
         process.exit();
       }
     };
@@ -48,6 +48,7 @@ function buildGraph(verticesQt) {
   for (let i = 1; i <= verticesQt; i++) {
     graph[i] = {
       edges: new Set(),
+      visited: false,
     };
   }
 
@@ -60,69 +61,48 @@ function createConnections(graph, connections) {
   });
 }
 
-function dfs(graph, stack, used, order) {
-  const visited = new Set();
+function dfs(graph, startingPoint) {
+  const stack = [startingPoint];
+  const order = [];
 
   while(stack.length) {
-    const current = stack[stack.length - 1];
+    const vertexId = stack.pop();
+    const vertex = graph[vertexId];
 
-    if (used.has(current)) {
-      stack.pop();
+    if (vertex.visited) {
       continue;
     }
 
-    if (visited.has(current)) {
-      order.push(current);
+    vertex.visited = true;
+    order.push(vertexId);
 
-      stack.pop();
-
-      used.add(current);
-
-      continue;
-    }
-
-    if (graph[current].edges.size) {
-        visited.add(current);
-
-        graph[current].edges.forEach(edge => {
-          if (!used.has(edge)) {
-            stack.push(edge);
-          }
-        });
-    } else {
-      order.push(current);
-
-      stack.pop();
-
-      used.add(current);
+    if (vertex.edges.size) {
+      vertex.edges.forEach(edge => {
+        if (!graph[edge].visited) {
+          stack.push(edge);
+        }
+      });
     }
   }
+
+  return order;
 }
 
-function toposort(verticesQt, connections) {
+function solve(verticesQt, connections, startingPoint) {
   const graph = buildGraph(verticesQt);
 
   createConnections(graph, connections);
 
-  const order = [];
-  const used = new Set();
+  const dfsOrder = dfs(graph, startingPoint);
 
-  for(let i = 1; i <= verticesQt; i++) {
-    const stack = [];
-
-    stack.push(i);
-
-    dfs(graph, stack, used, order);
-  }
-
-  return order.reverse().join(' ');
+  return dfsOrder;
 }
 
 function test(outputType, onlyTest) {
   let testCases = [
     {
       id: 1,
-      run: () => toposort(
+      run: () => solve(
         6,
         [
           [1, 2],
@@ -131,9 +111,10 @@ function test(outputType, onlyTest) {
           [3, 5],
           [4, 6],
           [5, 4],
-        ]
+        ],
+        3,
       ),
-      expected: '1 3 5 2 4 6'
+      expected: '3 5 4 6 1 2'
     },
   ];
 
@@ -147,7 +128,7 @@ function test(outputType, onlyTest) {
   }
 
   testCases.forEach(testCase => {
-    const result = testCase.run();
+    const result = testCase.run().join(' ');
 
     if (outputType === 'RESULT') {
       console.log(result);
@@ -187,4 +168,4 @@ if (process && process.argv && process.argv.includes('-t')) {
 
 readLines();
 
-module.exports = toposort;
+module.exports = solve;

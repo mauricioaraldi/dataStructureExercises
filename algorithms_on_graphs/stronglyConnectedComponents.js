@@ -263,6 +263,21 @@ function test(outputType, onlyTest) {
       ),
       expected: 6
     },
+    {
+      id: 6,
+      run: () => checkConnectedComponents(
+        6,
+        [
+          [1, 2],
+          [2, 6],
+          [3, 1],
+          [3, 5],
+          [4, 3],
+          [5, 4],
+        ]
+      ),
+      expected: 4
+    },
   ];
 
   if (onlyTest !== undefined) {
