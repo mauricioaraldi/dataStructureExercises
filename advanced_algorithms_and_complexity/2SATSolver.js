@@ -11,6 +11,8 @@
 
 let VERBOSE = false;
 
+const fs = require('fs');
+const childProcess = require('child_process');
 const readline = require('readline');
 
 const rl = readline.createInterface({
@@ -201,7 +203,7 @@ function getConnectedCondensedComponent(graph, dfsOrder) {
       edges: new Set(),
       reverseEdges: new Set(),
       visited: false,
-    },
+    }
   );
 }
 
@@ -322,10 +324,15 @@ function getLFromToposortedCondensation(graph, order, variablesQt) {
 
 function solver(variablesQt, clauses) {
   const graph = buildImplicationGraph(clauses);
-  const startingPoint = getStartingPoint(graph);
   const dfsOrder = [];
+  let startingPoint = getStartingPoint(graph);
 
-  dfs(graph, startingPoint, dfsOrder).reverse();
+  while(startingPoint) {
+    dfs(graph, startingPoint, dfsOrder);
+    startingPoint = getStartingPoint(graph);
+  }
+
+  dfsOrder.reverse();
 
   resetVisitedNodes(graph);
 
@@ -348,16 +355,16 @@ function solver(variablesQt, clauses) {
     }
   }
 
-  // If literals of C are not assigned yet:
-  //    set all of them to 1
-  //    set their negations to 0
-
   const condensationGraphToposort = toposort(condensationGraph).reverse();
   const result = getLFromToposortedCondensation(
     condensationGraph,
     condensationGraphToposort,
     variablesQt
   );
+
+  if (!result) {
+    return ['UNSATISFIABLE'];
+  }
 
   return [
     'SATISFIABLE',
@@ -440,27 +447,27 @@ function test(outputType, onlyTest) {
       ),
       expected: 'SATISFIABLE -1 2'
     },
-    // {
-    //   id: 7,
-    //   run: () => solver(
-    //     8,
-    //     [
-    //       [1, 4],
-    //       [-2, 5],
-    //       [3, 7],
-    //       [2, -5],
-    //       [-8, -2],
-    //       [3, -1],
-    //       [4, -3],
-    //       [5, -4],
-    //       [-3, -7],
-    //       [6, 7],
-    //       [1, 7],
-    //       [-7, -1],
-    //     ]
-    //   ),
-    //   expected: 'SATISFIABLE 1 2 3 4 5 6 -7 -8'
-    // },
+    {
+      id: 7,
+      run: () => solver(
+        8,
+        [
+          [1, 4],
+          [-2, 5],
+          [3, 7],
+          [2, -5],
+          [-8, -2],
+          [3, -1],
+          [4, -3],
+          [5, -4],
+          [-3, -7],
+          [6, 7],
+          [1, 7],
+          [-7, -1],
+        ]
+      ),
+      expected: 'SATISFIABLE 1 2 3 4 5 6 -7 -8'
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -489,6 +496,89 @@ function test(outputType, onlyTest) {
   });
 
   process.exit();
+}
+
+function getMinisatResult(id, clauses, highestVar) {
+  try {
+    const FILENAME = `${id}_sat_input.txt`;
+    const parsedClauses = clauses.map(clause => `${clause.join(' ')} 0`);
+
+    const SATInput = [
+      `p cnf ${highestVar} ${clauses.length}`,
+      ...parsedClauses,
+    ];
+
+    fs.writeFileSync(FILENAME, SATInput.join('\n'));
+
+    execOutput = childProcess.execSync(
+      `minisat "${FILENAME}"`,
+      { encoding: 'utf8' }
+    );
+  } catch (err) {
+    // err.status
+    // 10 = SATISFIABLE
+    // 20 = UNSATISFIABLE
+    if (err.status && [10, 20].indexOf(err.status) > -1 && err.stdout) {
+      execOutput = err.stdout;
+    } else {
+      console.error(err);
+    }
+  }
+
+  if (!execOutput) {
+    console.error(`No exec output for test ${testCase.id}`);
+    return;
+  }
+
+  const result = execOutput.trim().split('\n').slice(-1)[0];
+
+  return result;
+}
+
+function stressTest() {
+  const NUMBER_OF_TESTS = 2;
+  const MIN_VAR = 1;
+  const MAX_VAR = 100;
+  const MAX_CLAUSES = 10;
+
+  const generateRandomVar = () => {
+    const signal = Math.random() < 0.5 ? '+' : '-';
+    const number = Math.random() * (MAX_VAR - MIN_VAR) + MIN_VAR;
+
+    return parseInt(`${signal}${number}`, 10);
+  };
+
+  for (let i = 0; i < NUMBER_OF_TESTS; i++) {
+    const clauses = [];
+    const clausesQt = Math.random() * (MAX_CLAUSES - 2) + 2;
+    let highestVar = 0;
+
+    for (let c = 0; c < clausesQt; c++) {
+      const var1 = generateRandomVar();
+      const var2 = generateRandomVar();
+
+      highestVar = Math.max(highestVar, var1, var2);
+
+      clauses.push([var1, var2]);
+    }
+
+    const minisatResult = getMinisatResult(i + 1, clauses, highestVar);
+    const codeResult = solver(highestVar, clauses)[0];
+
+    if (minisatResult === codeResult) {
+      console.log(`Passed test ${i + 1}`);
+    } else {
+      console.log(`[X] Failed test ${i + 1}`);
+      console.log(` -  Minisat: ${minisatResult}`);
+      console.log(` -  Code: ${codeResult}`);
+    }
+  }
+
+  process.exit();
+}
+
+if (process && process.argv && process.argv.includes('-st')) {
+  return stressTest();
 }
 
 if (process && process.argv && process.argv.includes('-t')) {
