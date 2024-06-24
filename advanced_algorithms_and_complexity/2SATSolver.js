@@ -298,12 +298,19 @@ function resetVisitedNodes(graph) {
   }
 }
 
-function getLFromToposortedCondensation(graph, order, variablesQt) {
-  const result = new Array(variablesQt);
+function getLFromToposortedCondensation(graph, order) {
+  const result = {};
+  const variables = [];
+
+  for (let key in graph) {
+    Array.from(graph[key].keys).forEach(edgeKey => {
+      result[edgeKey] = undefined;
+      variables.push(edgeKey);
+    });
+  }
 
   for (let i = 0; i < order.length; i++) {
     const edge = order[i];
-    const variables = Array.from(graph[edge].keys);
 
     variables.forEach(variable => {
       const intVariable = parseInt(variable, 10);
@@ -314,12 +321,24 @@ function getLFromToposortedCondensation(graph, order, variablesQt) {
       }
     });
 
-    if (!result.includes(undefined)) {
+    const resultValues = [];
+
+    for (let resultKey in result) {
+      resultValues.push(result[resultKey]);
+    }
+
+    if (!resultValues.includes(undefined)) {
       return result;
     }
   }
 
-  return undefined;
+  const finalResult = [];
+
+  for (let key in result) {
+    finalResult.push(result[key]);
+  }
+
+  return finalResult;
 }
 
 function solver(variablesQt, clauses) {
@@ -345,10 +364,18 @@ function solver(variablesQt, clauses) {
   }
 
   for (let i = 1; i <= variablesQt; i++) {
+    if (!graph[i]) {
+      continue;
+    }
+
     for (let j in condensationGraph) {
       //If x and -x are in the same connectedComponent, UNSAT
       if (condensationGraph[j].keys.has(`${i}`)) {
         if (condensationGraph[j].keys.has(`-${i}`)) {
+          if (VERBOSE) {
+            console.log(`Component ${condensationGraph[j]} contains both sides of var ${i}`);
+          }
+
           return ['UNSATISFIABLE'];
         }
       }
@@ -361,10 +388,6 @@ function solver(variablesQt, clauses) {
     condensationGraphToposort,
     variablesQt
   );
-
-  if (!result) {
-    return ['UNSATISFIABLE'];
-  }
 
   return [
     'SATISFIABLE',
@@ -468,6 +491,21 @@ function test(outputType, onlyTest) {
       ),
       expected: 'SATISFIABLE 1 2 3 4 5 6 -7 -8'
     },
+    {
+      id: 8,
+      run: () => solver(
+        82,
+        [
+          [8, 51],
+          [-46, -82],
+          [-68, 7],
+          [44, -7],
+          [7, 6],
+          [-29, -36],
+        ]
+      ),
+      expected: 'SATISFIABLE 8 7 44 -46 -68 -29'
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -485,12 +523,12 @@ function test(outputType, onlyTest) {
     if (outputType === 'RESULT') {
       console.log(result.join('\n'));
     } else if (outputType === 'TEST') {
-      if (result.join(' ') === testCase.expected) {
+      if (result.join(' ').trim() === testCase.expected) {
         console.log(`[V] Passed test ${testCase.id}`);
       } else {
         console.log(`[X] Failed test ${testCase.id}`);
         console.log(`Expected: ${testCase.expected}`);
-        console.log(`Got: ${result.join(' ')}`);
+        console.log(`Got: ${result.join(' ').trim()}`);
       }
     }
   });
@@ -557,7 +595,7 @@ function stressTest() {
       const var1 = generateRandomVar();
       const var2 = generateRandomVar();
 
-      highestVar = Math.max(highestVar, var1, var2);
+      highestVar = Math.max(highestVar, Math.abs(var1), Math.abs(var2));
 
       clauses.push([var1, var2]);
     }
