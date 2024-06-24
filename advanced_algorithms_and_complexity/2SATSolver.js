@@ -133,58 +133,49 @@ function sortWithNegativeKeys(keys) {
   });
 }
 
-function dfs(graph) {
-  const dfsOrder = [];
-  const dfsUsed = new Set();
-  const graphKeys = Object.keys(graph);
+function dfs(graph, vertexId, order) {
+  const vertex = graph[vertexId];
 
-  graphKeys.forEach(key => {
-    const stack = [];
+  if (vertex.visited) {
+    return order;
+  }
 
-    stack.push(key);
+  vertex.visited = true;
 
-    dfsExplore(graph, stack, dfsUsed, dfsOrder);
-  });
+  if (vertex.edges.size) {
+    vertex.edges.forEach(edge => {
+      if (!graph[edge].visited) {
+        dfs(graph, edge, order);
+      }
+    });
+  }
 
-  return dfsOrder;
+  order.push(vertexId);
+
+  return order;
 }
 
-function dfsExplore(graph, stack, used, order) {
-  const visited = new Set();
+function getStartingPoint(graph) {
+  let vertex = Object.keys(graph).find(key => !graph[key].visited);
 
-  while(stack.length) {
-    const current = stack[stack.length - 1];
+  if (!vertex) {
+    return undefined;
+  }
 
-    if (used.has(current)) {
-      stack.pop();
-      continue;
+  while (true) {
+    if (!graph[vertex].reverseEdges.size) {
+      return vertex;
     }
 
-    if (visited.has(current)) {
-      order.push(current);
+    const nextVertex = Array.from(graph[vertex].reverseEdges).find(
+      edge => !graph[edge].visited
+    );
 
-      stack.pop();
-
-      used.add(current);
-
-      continue;
+    if (!nextVertex) {
+      return vertex;
     }
 
-    if (graph[current].reverseEdges.size) {
-        visited.add(current);
-
-        graph[current].reverseEdges.forEach(edge => {
-          if (!used.has(edge)) {
-            stack.push(edge);
-          }
-        });
-    } else {
-      order.push(current);
-
-      stack.pop();
-
-      used.add(current);
-    }
+    vertex = nextVertex;
   }
 }
 
@@ -284,26 +275,60 @@ function buildCondensationGraph(connectedComponents) {
   return graph;
 }
 
-function reverseToposort(graph) {
-  const order = [];
-  const used = new Set();
-  const graphKeys = Object.keys(graph).reverse();
+function toposort(graph) {
+  let startingPoint = getStartingPoint(graph);
+  let dfsOrder = [];
 
-  graphKeys.forEach(key => {
-    const stack = [];
+  while (startingPoint) {
+    dfsOrder = dfs(graph, startingPoint, dfsOrder);
+    startingPoint = getStartingPoint(graph);
+  }
 
-    stack.push(key);
+  return dfsOrder.reverse();
+}
 
-    dfsExplore(graph, stack, used, order);
-  });
+function resetVisitedNodes(graph) {
+  for (let key in graph) {
+    graph[key].visited = false;
+  }
+}
 
-  return order;
+function getLFromToposortedCondensation(graph, order, variablesQt) {
+  const result = new Array(variablesQt);
+
+  for (let i = 0; i < order.length; i++) {
+    const edge = order[i];
+    const variables = Array.from(graph[edge].keys);
+
+    variables.forEach(variable => {
+      const intVariable = parseInt(variable, 10);
+      const index = Math.abs(intVariable) - 1;
+
+      if (result[index] === undefined) {
+        result[index] = intVariable;
+      }
+    });
+
+    if (!result.includes(undefined)) {
+      return result;
+    }
+  }
+
+  return undefined;
 }
 
 function solver(variablesQt, clauses) {
   const graph = buildImplicationGraph(clauses);
-  const graphDfs = dfs(graph, variablesQt * 2);
-  const connectedComponents = getConnectedComponents(graph, [...graphDfs]);
+  const startingPoint = getStartingPoint(graph);
+  const dfsOrder = [];
+  
+  dfs(graph, startingPoint, dfsOrder).reverse();
+
+  resetVisitedNodes(graph);
+
+  console.log(123123123);
+
+  const connectedComponents = getConnectedComponents(graph, [...dfsOrder]);
   const condensationGraph = buildCondensationGraph(connectedComponents);
 
   if (VERBOSE) {
@@ -326,15 +351,16 @@ function solver(variablesQt, clauses) {
   //    set all of them to 1
   //    set their negations to 0
 
-  const toposortedCondensationGraph = reverseToposort(condensationGraph);
-
-  console.log(1111, toposortedCondensationGraph);
-
-  // const sortedConnectedComponent = sortWithNegativeKeys(connectedComponents[0]).join(' ');
+  const condensationGraphToposort = toposort(condensationGraph).reverse();
+  const result = getLFromToposortedCondensation(
+    condensationGraph,
+    condensationGraphToposort,
+    variablesQt
+  );
 
   return [
     'SATISFIABLE',
-    // sortedConnectedComponent,
+    result.join(' '),
   ];
 }
 
