@@ -88,11 +88,15 @@ function buildImplicationGraph(clauses) {
 }
 
 function buildGraph(connections) {
-  const graph = {};
+  const graph = {
+    time: 0,
+  };
 
   connections.forEach(([origin, destiny]) => {
     if (!graph[origin]) {
       graph[origin] = {
+        discovery: -1,
+        low: -1,
         edges: new Set(),
         reverseEdges: new Set(),
         visited: false,
@@ -101,6 +105,8 @@ function buildGraph(connections) {
 
     if (!graph[destiny]) {
       graph[destiny] = {
+        discovery: -1,
+        low: -1,
         edges: new Set(),
         reverseEdges: new Set(),
         visited: false,
@@ -112,27 +118,6 @@ function buildGraph(connections) {
   });
 
   return graph;
-}
-
-function sortWithNegativeKeys(keys) {
-  return keys.sort((a, b) => {
-    const positiveA = Math.abs(parseInt(a, 10));
-    const positiveB = Math.abs(parseInt(b, 10));
-
-    if (positiveA < positiveB) {
-      return -1;
-    } else if (positiveA > positiveB) {
-      return 1;
-    }
-
-    if (a < b) {
-      return -1;
-    } else if (a > b) {
-      return 1;
-    }
-
-    return 0;
-  });
 }
 
 function dfs(graph, vertexId, order) {
@@ -184,82 +169,47 @@ function getStartingPoint(graph) {
   }
 }
 
-function getConnectedCondensedComponent(graph, dfsOrder) {
-  let node = dfsOrder.pop();
+function buildCondensationGraph(graph, connectedComponents) {
+  const condensatedGraph = {};
+  const edgeKeyMap = {};
+  const condensedComponents = [];
 
-  while (graph[node].visited) {
-    if (!dfsOrder.length) {
-      return;
-    }
-
-    node = dfsOrder.pop();
-  }
-
-  return explore(
-    graph,
-    node,
-    {
+  connectedComponents.forEach(component => {
+    const condensedComponent = {
       keys: new Set(),
       edges: new Set(),
       reverseEdges: new Set(),
       visited: false,
-    }
-  );
-}
+    };
 
-function explore(graph, v, condensationEdge) {
-  graph[v].visited = true;
+    component.forEach(vertex => {
+      condensedComponent.reverseEdges.delete(vertex);
+      condensedComponent.edges.delete(vertex);
+      condensedComponent.keys.add(vertex);
 
-  condensationEdge.reverseEdges.delete(v);
-  condensationEdge.edges.delete(v);
-  condensationEdge.keys.add(v);
+      graph[vertex].edges.forEach(neighbor => {
+        if (!condensedComponent.keys.has(neighbor)) {
+          condensedComponent.edges.add(neighbor);
+        }
+      });
 
-  graph[v].reverseEdges.forEach(reverseNeighbor => {
-    if (!condensationEdge.keys.has(reverseNeighbor)) {
-      condensationEdge.reverseEdges.add(reverseNeighbor);
-    }
+      graph[vertex].reverseEdges.forEach(reverseNeighbor => {
+        if (!condensedComponent.keys.has(reverseNeighbor)) {
+          condensedComponent.reverseEdges.add(reverseNeighbor);
+        }
+      });
+    });
+
+    condensedComponents.push(condensedComponent);
   });
 
-  graph[v].edges.forEach(neighbor => {
-    if (!condensationEdge.keys.has(neighbor)) {
-      condensationEdge.edges.add(neighbor);
-    }
-
-    if (graph[neighbor].visited) {
-      return;
-    }
-
-    explore(graph, neighbor, condensationEdge);
-  });
-
-  return condensationEdge;
-}
-
-function getConnectedComponents(graph, graphDfs) {
-  const connectedComponents = [];
-
-  while (graphDfs.length) {
-    const connectedCondensedComponent = getConnectedCondensedComponent(graph, graphDfs);
-
-    if (connectedCondensedComponent) {
-      connectedComponents.push(connectedCondensedComponent);
-    }
-  }
-
-  return connectedComponents;
-}
-
-function buildCondensationGraph(connectedComponents) {
-  const graph = {};
-  const edgeKeyMap = {};
-
-  connectedComponents.forEach((component, index) => {
+  condensedComponents.forEach((component, index) => {
     component.keys.forEach(key => {
       edgeKeyMap[key] = `${index + 1}`;
     })
   });
 
-  connectedComponents.forEach((component, index) => {
+  condensedComponents.forEach((component, index) => {
     const edgesToComponents = new Set();
     const reverseEdgesToComponents = new Set();
 
@@ -274,10 +224,10 @@ function buildCondensationGraph(connectedComponents) {
     component.edges = edgesToComponents;
     component.reverseEdges = reverseEdgesToComponents;
 
-    graph[index + 1] = component;
+    condensatedGraph[index + 1] = component;
   });
 
-  return graph;
+  return condensatedGraph;
 }
 
 function toposort(graph) {
@@ -290,12 +240,6 @@ function toposort(graph) {
   }
 
   return dfsOrder.reverse();
-}
-
-function resetVisitedNodes(graph) {
-  for (let key in graph) {
-    graph[key].visited = false;
-  }
 }
 
 function getLFromToposortedCondensation(graph, order) {
@@ -341,22 +285,70 @@ function getLFromToposortedCondensation(graph, order) {
   return finalResult;
 }
 
-function solver(variablesQt, clauses) {
-  const graph = buildImplicationGraph(clauses);
-  const dfsOrder = [];
-  let startingPoint = getStartingPoint(graph);
+function createConnections(graph, connections) {
+  connections.forEach(([origin, destiny]) => {
+    graph[origin].edges.add(destiny);
+    graph[destiny].reverseEdges.add(origin);
+  });
+}
 
-  while(startingPoint) {
-    dfs(graph, startingPoint, dfsOrder);
-    startingPoint = getStartingPoint(graph);
+function tarjanExplore(graph, vertex, stack, connectedComponents) {
+  const component = [];
+
+  graph[vertex].discovery = graph.time;
+  graph[vertex].low = graph.time;
+
+  graph.time += 1;
+
+  graph[vertex].visited = true;
+
+  stack.push(vertex);
+
+  const neighbors = Array.from(graph[vertex].edges);
+
+  neighbors.forEach(neighbor => {
+    if (graph[neighbor].discovery === -1) {
+      tarjanExplore(graph, neighbor, stack, connectedComponents);
+
+      graph[vertex].low = Math.min(graph[vertex].low, graph[neighbor].low);
+    } else if (graph[neighbor].visited) {
+      graph[vertex].low = Math.min(graph[vertex].low, graph[neighbor].discovery);
+    }
+  });
+
+  let componentMember;
+  if (graph[vertex].low == graph[vertex].discovery) {
+    while (componentMember !== vertex) {
+      componentMember = stack.pop();
+
+      component.push(componentMember);
+
+      graph[componentMember].visited = false;
+    }
   }
 
-  dfsOrder.reverse();
+  if (component.length) {
+    connectedComponents.push(component);
+  }
+}
 
-  resetVisitedNodes(graph);
+function tarjan(graph, verticesQt) {
+  const stack = [];
+  const connectedComponents = [];
 
-  const connectedComponents = getConnectedComponents(graph, [...dfsOrder]);
-  const condensationGraph = buildCondensationGraph(connectedComponents);
+  for (let key in graph) {
+    if (graph[key].discovery === -1) {
+      tarjanExplore(graph, key, stack, connectedComponents);
+    }
+  }
+
+  return connectedComponents;
+}
+
+function solver(variablesQt, clauses) {
+  const graph = buildImplicationGraph(clauses);
+  const connectedComponents = tarjan(graph, variablesQt * 2);
+  const condensationGraph = buildCondensationGraph(graph, connectedComponents);
 
   if (VERBOSE) {
     console.log('Graph', '\n ', graph);
@@ -385,10 +377,9 @@ function solver(variablesQt, clauses) {
   const condensationGraphToposort = toposort(condensationGraph).reverse();
   const result = getLFromToposortedCondensation(
     condensationGraph,
-    condensationGraphToposort,
-    variablesQt
+    condensationGraphToposort
   );
-
+  
   return [
     'SATISFIABLE',
     result.join(' '),
@@ -506,6 +497,44 @@ function test(outputType, onlyTest) {
       ),
       expected: 'SATISFIABLE 8 7 44 -46 -68 -29'
     },
+    {
+      id: 9,
+      run: () => solver(
+        18,
+        [
+          [8, -13],
+          [-18, 11],
+          [13, 12],
+          [-12, -8],
+          [14, 17],
+          [-17, 12],
+          [8, -2],
+          [-8, -14],
+          [-8, -10],
+          [-5, -3],
+        ]
+      ),
+      expected: 'SATISFIABLE 12 14 -8 -13 -2 -18 -5'
+    },
+    {
+      id: 10,
+      run: () => solver(
+        11,
+        [
+          [4, -8],
+          [-11, 6],
+          [8, 7],
+          [-7, -4],
+          [9, 10],
+          [-10, 7],
+          [4, -1],
+          [-4, -9],
+          [-4, -5],
+          [-3, -2],
+        ]
+      ),
+      expected: ' SATISFIABLE 7 9 -4 -8 -1 -11 -3'
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -574,10 +603,10 @@ function getMinisatResult(id, clauses, highestVar) {
 }
 
 function stressTest() {
-  const NUMBER_OF_TESTS = 2;
+  const NUMBER_OF_TESTS = 200;
   const MIN_VAR = 1;
-  const MAX_VAR = 100;
-  const MAX_CLAUSES = 10;
+  const MAX_VAR = 10;
+  const MAX_CLAUSES = 5;
 
   const generateRandomVar = () => {
     const signal = Math.random() < 0.5 ? '+' : '-';
