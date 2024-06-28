@@ -242,6 +242,27 @@ function toposort(graph) {
   return dfsOrder.reverse();
 }
 
+function sortWithNegativeKeys(keys) {
+  return keys.sort((a, b) => {
+    const positiveA = Math.abs(parseInt(a, 10));
+    const positiveB = Math.abs(parseInt(b, 10));
+
+    if (positiveA < positiveB) {
+      return -1;
+    } else if (positiveA > positiveB) {
+      return 1;
+    }
+
+    if (a < b) {
+      return -1;
+    } else if (a > b) {
+      return 1;
+    }
+
+    return 0;
+  });
+}
+
 function getLFromToposortedCondensation(graph, order) {
   const result = {};
   const variables = [];
@@ -345,6 +366,22 @@ function tarjan(graph, verticesQt) {
   return connectedComponents;
 }
 
+function getUniqueLResults(connectedComponents) {
+  const result = new Set();
+
+  connectedComponents.forEach(component => {
+    component.forEach(vertex => {
+      const normalizedVertex = Math.abs(parseInt(vertex, 10));
+
+      if (!result.has(`${normalizedVertex}`) && !result.has(`-${normalizedVertex}`)) {
+        result.add(vertex);
+      }
+    });
+  });
+
+  return Array.from(result);
+}
+
 function solver(variablesQt, clauses) {
   const graph = buildImplicationGraph(clauses);
   const connectedComponents = tarjan(graph, variablesQt * 2);
@@ -374,12 +411,10 @@ function solver(variablesQt, clauses) {
     }
   }
 
-  const condensationGraphToposort = toposort(condensationGraph).reverse();
-  const result = getLFromToposortedCondensation(
-    condensationGraph,
-    condensationGraphToposort
-  );
-  
+  const result = getUniqueLResults(connectedComponents);
+
+  sortWithNegativeKeys(result);
+
   return [
     'SATISFIABLE',
     result.join(' '),
