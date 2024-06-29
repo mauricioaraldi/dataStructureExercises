@@ -637,11 +637,11 @@ function getMinisatResult(id, clauses, highestVar) {
   return result;
 }
 
-function stressTest() {
-  const NUMBER_OF_TESTS = 200;
+function stressTest(untillFail) {
+  let NUMBER_OF_TESTS = untillFail ? 1 : 5;
   const MIN_VAR = 1;
-  const MAX_VAR = 10;
-  const MAX_CLAUSES = 5;
+  const MAX_VAR = 100;
+  const MAX_CLAUSES = 200;
 
   const generateRandomVar = () => {
     const signal = Math.random() < 0.5 ? '+' : '-';
@@ -650,7 +650,7 @@ function stressTest() {
     return parseInt(`${signal}${number}`, 10);
   };
 
-  for (let i = 0; i < NUMBER_OF_TESTS; i++) {
+  while (NUMBER_OF_TESTS--) {
     const clauses = [];
     const clausesQt = Math.random() * (MAX_CLAUSES - 2) + 2;
     let highestVar = 0;
@@ -664,15 +664,15 @@ function stressTest() {
       clauses.push([var1, var2]);
     }
 
-    const minisatResult = getMinisatResult(i + 1, clauses, highestVar);
+    const minisatResult = getMinisatResult(NUMBER_OF_TESTS + 1, clauses, highestVar);
     const codeResult = solver(highestVar, clauses)[0];
 
-    if (minisatResult === codeResult) {
-      console.log(`Passed test ${i + 1}`);
-    } else {
-      console.log(`[X] Failed test ${i + 1}`);
+    if (minisatResult !== codeResult) {
+      console.log(`[X] Failed test ${NUMBER_OF_TESTS + 1}`);
       console.log(` -  Minisat: ${minisatResult}`);
       console.log(` -  Code: ${codeResult}`);
+    } else if (untillFail) {
+      NUMBER_OF_TESTS = 1;
     }
   }
 
@@ -680,7 +680,7 @@ function stressTest() {
 }
 
 if (process && process.argv && process.argv.includes('-st')) {
-  return stressTest();
+  return stressTest(process.argv.includes('-untillFail'));
 }
 
 if (process && process.argv && process.argv.includes('-t')) {
