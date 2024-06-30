@@ -155,7 +155,7 @@ function tarjan(graph, verticesQt) {
   const executionStack = [];
 
   for (let i in graph) {
-    let component = [];
+    let component = new Set();
 
     if (graph[i].discovery === -1) {
       executionStack.push({vertex: i, state: 0});
@@ -188,16 +188,16 @@ function tarjan(graph, verticesQt) {
             while (tarjanStack[tarjanStack.length - 1] !== vertex) {
               componentMember = tarjanStack.pop();
               graph[componentMember].visited = false;
-              component.push(`${componentMember}`);
+              component.add(`${componentMember}`);
             }
 
             componentMember = tarjanStack.pop();
             graph[componentMember].visited = false;
-            component.push(`${componentMember}`);
+            component.add(`${componentMember}`);
 
-            if (component.length) {
+            if (component.size) {
               result.push(component);
-              component = [];
+              component = new Set();
             }
           }
         }
@@ -251,17 +251,34 @@ function solver(variablesQt, clauses) {
   }
 
   for (let componentIndex in connectedComponents) {
-    const component = connectedComponents[componentIndex];
+    const component = Array.from(connectedComponents[componentIndex]).sort((a, b) => {
+      const absA = a.replace('-', '');
+      const absB = b.replace('-', '');
+
+      if (absA > absB) {
+        return 1;
+      }
+
+      if (absB > absA) {
+        return -1;
+      }
+
+      return 0;
+    });
 
     for (let i = 0; i < component.length; i++) {
       for (let j = i + 1; j < component.length; j++) {
-        const l = component[i];
-        const invertedL = invertL(l);
+        const l1 = Math.abs(parseInt(component[i], 10));
+        const l2 = Math.abs(parseInt(component[j], 10));
+
+        if (l2 > l1) {
+          break;
+        }
 
         //If x and -x are in the same connectedComponent, UNSAT
-        if (component.indexOf(invertedL) > -1) {
+        if (l1 === l2) {
           if (VERBOSE) {
-            console.log(`Component [${c} = ${connectedComponents[c]}] contains both sides of var ${i}`);
+            console.log(`Component [${componentIndex} = ${component}] contains both sides of var ${i}`);
           }
 
           return ['UNSATISFIABLE'];
