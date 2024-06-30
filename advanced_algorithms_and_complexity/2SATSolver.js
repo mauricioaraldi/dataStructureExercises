@@ -10,6 +10,7 @@
 //                 1 2 -3
 
 let VERBOSE = false;
+let PROFILE = false;
 
 const fs = require('fs');
 const childProcess = require('child_process');
@@ -224,25 +225,43 @@ function getUniqueLResults(connectedComponents) {
 }
 
 function solver(variablesQt, clauses) {
+  if (PROFILE) {
+    console.time('graph_built');
+    console.time('connected_components');
+    console.time('checked_unsat');
+    console.time('got_results');
+    console.time('sorted');
+  }
+
   const graph = buildImplicationGraph(clauses);
+
+  if (PROFILE) {
+    console.timeEnd('graph_built');
+  }
+
   const connectedComponents = tarjan(graph, variablesQt * 2);
+
+  if (PROFILE) {
+    console.timeEnd('connected_components');
+  }
 
   if (VERBOSE) {
     console.log('Graph', '\n ', graph);
     console.log('Connected components', '\n ', connectedComponents);
   }
 
-  for (let i = 1; i <= variablesQt; i++) {
-    if (!graph[i]) {
-      continue;
-    }
+  for (let componentIndex in connectedComponents) {
+    const component = connectedComponents[componentIndex];
 
-    for (let j in connectedComponents) {
-      //If x and -x are in the same connectedComponent, UNSAT
-      if (connectedComponents[j].indexOf(`${i}`) > -1) {
-        if (connectedComponents[j].indexOf(`-${i}`) > -1) {
+    for (let i = 0; i < component.length; i++) {
+      for (let j = i + 1; j < component.length; j++) {
+        const l = component[i];
+        const invertedL = invertL(l);
+
+        //If x and -x are in the same connectedComponent, UNSAT
+        if (component.indexOf(invertedL) > -1) {
           if (VERBOSE) {
-            console.log(`Component [${j} = ${connectedComponents[j]}] contains both sides of var ${i}`);
+            console.log(`Component [${c} = ${connectedComponents[c]}] contains both sides of var ${i}`);
           }
 
           return ['UNSATISFIABLE'];
@@ -251,9 +270,21 @@ function solver(variablesQt, clauses) {
     }
   }
 
+  if (PROFILE) {
+    console.timeEnd('checked_unsat');
+  }
+
   const result = getUniqueLResults(connectedComponents);
 
+  if (PROFILE) {
+    console.timeEnd('got_results');
+  }
+
   sortWithNegativeKeys(result);
+
+  if (PROFILE) {
+    console.timeEnd('sorted');
+  }
 
   return [
     'SATISFIABLE',
@@ -478,10 +509,10 @@ function getMinisatResult(id, clauses, highestVar) {
 }
 
 function stressTest(untillFail) {
-  let NUMBER_OF_TESTS = untillFail ? 1 : 5;
+  let NUMBER_OF_TESTS = untillFail ? 1 : 1;
   const MIN_VAR = 1;
-  const MAX_VAR = 100;
-  const MAX_CLAUSES = 200;
+  const MAX_VAR = 100000;
+  const MAX_CLAUSES = 100000;
 
   const generateRandomVar = () => {
     const signal = Math.random() < 0.5 ? '+' : '-';
@@ -520,6 +551,9 @@ function stressTest(untillFail) {
 }
 
 if (process && process.argv && process.argv.includes('-st')) {
+  VERBOSE = process.argv.includes('-v');
+  PROFILE = process.argv.includes('-p');
+
   return stressTest(process.argv.includes('-untillFail'));
 }
 
@@ -539,6 +573,7 @@ if (process && process.argv && process.argv.includes('-t')) {
   }
 
   VERBOSE = process.argv.includes('-v');
+  PROFILE = process.argv.includes('-p');
 
   return test(outputType, testToRun);
 }
