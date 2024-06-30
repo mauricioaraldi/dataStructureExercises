@@ -120,128 +120,6 @@ function buildGraph(connections) {
   return graph;
 }
 
-function dfs(graph, vertexId, order) {
-  const vertex = graph[vertexId];
-
-  if (vertex.visited) {
-    return order;
-  }
-
-  vertex.visited = true;
-
-  if (vertex.edges.size) {
-    vertex.edges.forEach(edge => {
-      if (!graph[edge].visited) {
-        dfs(graph, edge, order);
-      }
-    });
-  }
-
-  order.push(vertexId);
-
-  return order;
-}
-
-function getStartingPoint(graph) {
-  const visitedNodes = new Set();
-  let vertex = Object.keys(graph).find(key => !graph[key].visited);
-
-  if (!vertex) {
-    return undefined;
-  }
-
-  while (true) {
-    if (!graph[vertex].reverseEdges.size) {
-      return vertex;
-    }
-
-    const nextVertex = Array.from(graph[vertex].reverseEdges).find(
-      edge => !graph[edge].visited && !visitedNodes.has(edge)
-    );
-
-    if (!nextVertex) {
-      return vertex;
-    }
-
-    visitedNodes.add(vertex);
-
-    vertex = nextVertex;
-  }
-}
-
-function buildCondensationGraph(graph, connectedComponents) {
-  const condensatedGraph = {};
-  const edgeKeyMap = {};
-  const condensedComponents = [];
-
-  connectedComponents.forEach(component => {
-    const condensedComponent = {
-      keys: new Set(),
-      edges: new Set(),
-      reverseEdges: new Set(),
-      visited: false,
-    };
-
-    component.forEach(vertex => {
-      condensedComponent.reverseEdges.delete(vertex);
-      condensedComponent.edges.delete(vertex);
-      condensedComponent.keys.add(vertex);
-
-      graph[vertex].edges.forEach(neighbor => {
-        if (!condensedComponent.keys.has(neighbor)) {
-          condensedComponent.edges.add(neighbor);
-        }
-      });
-
-      graph[vertex].reverseEdges.forEach(reverseNeighbor => {
-        if (!condensedComponent.keys.has(reverseNeighbor)) {
-          condensedComponent.reverseEdges.add(reverseNeighbor);
-        }
-      });
-    });
-
-    condensedComponents.push(condensedComponent);
-  });
-
-  condensedComponents.forEach((component, index) => {
-    component.keys.forEach(key => {
-      edgeKeyMap[key] = `${index + 1}`;
-    })
-  });
-
-  condensedComponents.forEach((component, index) => {
-    const edgesToComponents = new Set();
-    const reverseEdgesToComponents = new Set();
-
-    component.edges.forEach(edge => {
-      edgesToComponents.add(edgeKeyMap[edge]);
-    });
-
-    component.reverseEdges.forEach(edge => {
-      reverseEdgesToComponents.add(edgeKeyMap[edge]);
-    });
-
-    component.edges = edgesToComponents;
-    component.reverseEdges = reverseEdgesToComponents;
-
-    condensatedGraph[index + 1] = component;
-  });
-
-  return condensatedGraph;
-}
-
-function toposort(graph) {
-  let startingPoint = getStartingPoint(graph);
-  let dfsOrder = [];
-
-  while (startingPoint) {
-    dfsOrder = dfs(graph, startingPoint, dfsOrder);
-    startingPoint = getStartingPoint(graph);
-  }
-
-  return dfsOrder.reverse();
-}
-
 function sortWithNegativeKeys(keys) {
   return keys.sort((a, b) => {
     const positiveA = Math.abs(parseInt(a, 10));
@@ -261,49 +139,6 @@ function sortWithNegativeKeys(keys) {
 
     return 0;
   });
-}
-
-function getLFromToposortedCondensation(graph, order) {
-  const result = {};
-  const variables = [];
-
-  for (let key in graph) {
-    Array.from(graph[key].keys).forEach(edgeKey => {
-      result[edgeKey] = undefined;
-      variables.push(edgeKey);
-    });
-  }
-
-  for (let i = 0; i < order.length; i++) {
-    const edge = order[i];
-
-    variables.forEach(variable => {
-      const intVariable = parseInt(variable, 10);
-      const index = Math.abs(intVariable) - 1;
-
-      if (result[index] === undefined) {
-        result[index] = intVariable;
-      }
-    });
-
-    const resultValues = [];
-
-    for (let resultKey in result) {
-      resultValues.push(result[resultKey]);
-    }
-
-    if (!resultValues.includes(undefined)) {
-      return result;
-    }
-  }
-
-  const finalResult = [];
-
-  for (let key in result) {
-    finalResult.push(result[key]);
-  }
-
-  return finalResult;
 }
 
 function createConnections(graph, connections) {
@@ -391,11 +226,10 @@ function getUniqueLResults(connectedComponents) {
 function solver(variablesQt, clauses) {
   const graph = buildImplicationGraph(clauses);
   const connectedComponents = tarjan(graph, variablesQt * 2);
-  const condensationGraph = buildCondensationGraph(graph, connectedComponents);
 
   if (VERBOSE) {
     console.log('Graph', '\n ', graph);
-    console.log('Condensation graph', '\n ', condensationGraph);
+    console.log('Connected components', '\n ', connectedComponents);
   }
 
   for (let i = 1; i <= variablesQt; i++) {
@@ -403,12 +237,12 @@ function solver(variablesQt, clauses) {
       continue;
     }
 
-    for (let j in condensationGraph) {
+    for (let j in connectedComponents) {
       //If x and -x are in the same connectedComponent, UNSAT
-      if (condensationGraph[j].keys.has(`${i}`)) {
-        if (condensationGraph[j].keys.has(`-${i}`)) {
+      if (connectedComponents[j].indexOf(`${i}`) > -1) {
+        if (connectedComponents[j].indexOf(`-${i}`) > -1) {
           if (VERBOSE) {
-            console.log(`Component ${condensationGraph[j]} contains both sides of var ${i}`);
+            console.log(`Component [${j} = ${connectedComponents[j]}] contains both sides of var ${i}`);
           }
 
           return ['UNSATISFIABLE'];
