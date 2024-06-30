@@ -313,57 +313,63 @@ function createConnections(graph, connections) {
   });
 }
 
-function tarjanExplore(graph, vertex, stack, connectedComponents) {
-  const component = [];
-
-  graph[vertex].discovery = graph.time;
-  graph[vertex].low = graph.time;
-
-  graph.time += 1;
-
-  graph[vertex].visited = true;
-
-  stack.push(vertex);
-
-  const neighbors = Array.from(graph[vertex].edges);
-
-  neighbors.forEach(neighbor => {
-    if (graph[neighbor].discovery === -1) {
-      tarjanExplore(graph, neighbor, stack, connectedComponents);
-
-      graph[vertex].low = Math.min(graph[vertex].low, graph[neighbor].low);
-    } else if (graph[neighbor].visited) {
-      graph[vertex].low = Math.min(graph[vertex].low, graph[neighbor].discovery);
-    }
-  });
-
-  let componentMember;
-  if (graph[vertex].low == graph[vertex].discovery) {
-    while (componentMember !== vertex) {
-      componentMember = stack.pop();
-
-      component.push(componentMember);
-
-      graph[componentMember].visited = false;
-    }
-  }
-
-  if (component.length) {
-    connectedComponents.push(component);
-  }
-}
-
 function tarjan(graph, verticesQt) {
-  const stack = [];
-  const connectedComponents = [];
+  const result = [];
+  const tarjanStack = [];
+  const executionStack = [];
 
-  for (let key in graph) {
-    if (graph[key].discovery === -1) {
-      tarjanExplore(graph, key, stack, connectedComponents);
+  for (let i in graph) {
+    let component = [];
+
+    if (graph[i].discovery === -1) {
+      executionStack.push({vertex: i, state: 0});
+
+      while (executionStack.length > 0) {
+        let { vertex, state } = executionStack.pop();
+
+        if (state === 0) {
+          graph[vertex].discovery = graph[vertex].low = ++graph.time;
+          tarjanStack.push(vertex);
+          graph[vertex].visited = true;
+
+          executionStack.push({vertex: vertex, state: 1});
+
+          Array.from(graph[vertex].edges).forEach(neighbor => {
+            if (graph[neighbor].discovery === -1) {
+              executionStack.push({vertex: neighbor, state: 0});
+            }
+          });
+        } else {
+          Array.from(graph[vertex].edges).forEach(neighbor => {
+            if (graph[neighbor].visited) {
+              graph[vertex].low = Math.min(graph[neighbor].low, graph[vertex].low);
+            }
+          });
+
+          if (graph[vertex].low === graph[vertex].discovery) {
+            let componentMember = -1;
+
+            while (tarjanStack[tarjanStack.length - 1] !== vertex) {
+              componentMember = tarjanStack.pop();
+              graph[componentMember].visited = false;
+              component.push(`${componentMember}`);
+            }
+
+            componentMember = tarjanStack.pop();
+            graph[componentMember].visited = false;
+            component.push(`${componentMember}`);
+
+            if (component.length) {
+              result.push(component);
+              component = [];
+            }
+          }
+        }
+      }
     }
   }
 
-  return connectedComponents;
+  return result;
 }
 
 function getUniqueLResults(connectedComponents) {
