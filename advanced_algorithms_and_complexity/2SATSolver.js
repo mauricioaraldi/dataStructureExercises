@@ -187,24 +187,23 @@ function tarjan(graph, verticesQt) {
   return result;
 }
 
-function getUniqueLResults(connectedComponents) {
+function getUniqueLResults(connectedComponents, clausesVariables, clauses) {
   const result = new Set();
+  const uniqueVariablesFromConnectedComponents = new Set();
 
   connectedComponents.forEach(component => {
     component.forEach(vertex => {
-      const normalizedVertex = Math.abs(parseInt(vertex, 10));
+      const normalizedVertex = Math.abs(parseInt(vertex, 10)).toString();
 
-      if (!result.has(normalizedVertex.toString()) && !result.has(`-${normalizedVertex}`)) {
-        result.add(vertex);
+      if (
+        !uniqueVariablesFromConnectedComponents.has(normalizedVertex)
+        && !uniqueVariablesFromConnectedComponents.has(`-${normalizedVertex}`)
+        && clausesVariables.has(vertex)
+      ) {
+        uniqueVariablesFromConnectedComponents.add(vertex);
       }
     });
   });
-
-  return result;
-}
-
-function getUniqueValidVariablesFromClauses(validVariables, clauses) {
-  const result = new Set();
 
   clauses.forEach(clause => {
     const firstVar = clause[0].toString();
@@ -214,12 +213,12 @@ function getUniqueValidVariablesFromClauses(validVariables, clauses) {
       return;
     }
 
-    if (validVariables.has(firstVar)) {
+    if (uniqueVariablesFromConnectedComponents.has(firstVar)) {
       result.add(firstVar);
       return;
     }
 
-    if (validVariables.has(secondVar)) {
+    if (uniqueVariablesFromConnectedComponents.has(secondVar)) {
       result.add(secondVar);
       return;
     }
@@ -261,6 +260,17 @@ function getUniqueValidVariablesFromClauses(validVariables, clauses) {
   });
 }
 
+function getClausesVariables(clauses) {
+  const result = new Set();
+
+  clauses.forEach(clause => {
+    result.add(clause[0].toString());
+    result.add(clause[1] ? clause[1].toString() : undefined);
+  });
+
+  return result;
+}
+
 function solver(variablesQt, clauses) {
   if (PROFILE) {
     console.time('graph_built');
@@ -270,6 +280,7 @@ function solver(variablesQt, clauses) {
     console.time('got_result');
   }
 
+  const clausesVariables = getClausesVariables(clauses);
   const graph = buildImplicationGraph(clauses);
 
   if (PROFILE) {
@@ -328,13 +339,11 @@ function solver(variablesQt, clauses) {
     console.timeEnd('checked_unsat');
   }
 
-  const validVariables = getUniqueLResults(connectedComponents);
+  const result = getUniqueLResults(connectedComponents, clausesVariables, clauses);
 
   if (PROFILE) {
     console.timeEnd('got_valid_variables');
   }
-
-  const result = getUniqueValidVariablesFromClauses(validVariables, clauses);
 
   if (PROFILE) {
     console.timeEnd('got_result');
@@ -495,6 +504,45 @@ function test(outputType, onlyTest) {
       ),
       expected: ' SATISFIABLE 7 9 -1 -3 -4 -8 -11'
     },
+    {
+      id: 11,
+      run: () => solver(
+        1,
+        [
+          [1, -1],
+        ]
+      ),
+      expected: 'SATISFIABLE 1'
+    },
+    {
+      id: 12,
+      run: () => solver(
+        0,
+        []
+      ),
+      expected: 'SATISFIABLE'
+    },
+    {
+      id: 13,
+      run: () => solver(
+        1,
+        [
+          [-1],
+        ]
+      ),
+      expected: 'SATISFIABLE -1'
+    },
+    {
+      id: 14,
+      run: () => solver(
+        1,
+        [
+          [1],
+          [-1],
+        ]
+      ),
+      expected: 'UNSATISFIABLE'
+    }
   ];
 
   if (onlyTest !== undefined) {
@@ -526,19 +574,20 @@ function test(outputType, onlyTest) {
 }
 
 function getMinisatResult(id, clauses, highestVar) {
+  const INPUT_FILENAME = `${id}_sat_input.txt`;
+  const OUTPUT_FILENAME = `sat_output.txt`;
+  const parsedClauses = clauses.map(clause => `${clause.join(' ')} 0`);
+
+  const SATInput = [
+    `p cnf ${highestVar} ${clauses.length}`,
+    ...parsedClauses,
+  ];
+
   try {
-    const FILENAME = `${id}_sat_input.txt`;
-    const parsedClauses = clauses.map(clause => `${clause.join(' ')} 0`);
-
-    const SATInput = [
-      `p cnf ${highestVar} ${clauses.length}`,
-      ...parsedClauses,
-    ];
-
-    fs.writeFileSync(FILENAME, SATInput.join('\n'));
+    fs.writeFileSync(INPUT_FILENAME, SATInput.join('\n'));
 
     execOutput = childProcess.execSync(
-      `minisat "${FILENAME}"`,
+      `minisat ${INPUT_FILENAME} ${OUTPUT_FILENAME}`,
       { encoding: 'utf8' }
     );
   } catch (err) {
@@ -552,21 +601,24 @@ function getMinisatResult(id, clauses, highestVar) {
     }
   }
 
+  const minisatResult = fs.readFileSync(OUTPUT_FILENAME, 'utf8').trim().split('\n');
+
   if (!execOutput) {
     console.error(`No exec output for test ${testCase.id}`);
     return;
   }
 
-  const result = execOutput.trim().split('\n').slice(-1)[0];
-
-  return result;
+  return [
+    `${minisatResult[0]}ISFIABLE`,
+    minisatResult[1] ? minisatResult[1].replace(' 0', '') : ''
+  ];
 }
 
 function stressTest(untillFail) {
   let NUMBER_OF_TESTS = untillFail ? 1 : 1;
   const MIN_VAR = 1;
-  const MAX_VAR = 100000;
-  const MAX_CLAUSES = 100000;
+  const MAX_VAR = 10;
+  const MAX_CLAUSES = 50;
 
   const generateRandomVar = () => {
     const signal = Math.random() < 0.5 ? '+' : '-';
@@ -589,8 +641,27 @@ function stressTest(untillFail) {
       clauses.push([var1, var2]);
     }
 
-    const minisatResult = getMinisatResult(NUMBER_OF_TESTS + 1, clauses, highestVar);
-    const codeResult = solver(highestVar, clauses)[0];
+    const minisatResult = getMinisatResult(NUMBER_OF_TESTS + 1, clauses, highestVar).join(' ');
+    let codeResult = solver(highestVar, clauses);
+
+    if (codeResult[1]) {
+      codeResult[1] = codeResult[1].split(' ').sort((a, b) => {
+        const absA = Math.abs(parseInt(a, 10));
+        const absB = Math.abs(parseInt(b, 10));
+
+        if (absA > absB) {
+          return 1;
+        }
+
+        if (absB > absA) {
+          return -1;
+        }
+
+        return 0;
+      }).join(' ');
+    }
+
+    codeResult = codeResult.join(' ');
 
     if (minisatResult !== codeResult) {
       console.log(`[X] Failed test ${NUMBER_OF_TESTS + 1}`);

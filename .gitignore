@@ -1,3 +1,4 @@
 *.sublime-project
 *.sublime-workspace
 *sat_input.txt
+sat_output.txt
