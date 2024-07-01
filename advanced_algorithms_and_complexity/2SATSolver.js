@@ -55,13 +55,13 @@ const readLines = () => {
 
 function createConnections(graph, connections) {
   connections.forEach(([origin, destiny]) => {
-    graph[origin].edges.add(`${destiny}`);
-    graph[destiny].reverseEdges.add(`${origin}`);
+    graph[origin].edges.add(destiny.toString());
+    graph[destiny].reverseEdges.add(origin.toString());
   });
 }
 
 function invertL(l) {
-  const stringL = `${l}`;
+  const stringL = l.toString();
   return stringL.indexOf('-') > -1 ? stringL.replace('-', '') : `-${stringL}`;
 }
 
@@ -71,7 +71,7 @@ function buildImplicationGraph(clauses) {
 
   clauses.forEach(clause => {
     const invertedL1 = invertL(clause[0]);
-    const invertedL2 = invertL(clause[1]);
+    const invertedL2 = clause[1] ? invertL(clause[1]) : undefined;
 
     if (clause.length === 2) {
       //First directed edge -l1 -> l2
@@ -114,32 +114,11 @@ function buildGraph(connections) {
       };
     }
 
-    graph[origin].edges.add(`${destiny}`);
-    graph[destiny].reverseEdges.add(`${origin}`);
+    graph[origin].edges.add(destiny.toString());
+    graph[destiny].reverseEdges.add(origin.toString());
   });
 
   return graph;
-}
-
-function sortWithNegativeKeys(keys) {
-  return keys.sort((a, b) => {
-    const positiveA = Math.abs(parseInt(a, 10));
-    const positiveB = Math.abs(parseInt(b, 10));
-
-    if (positiveA < positiveB) {
-      return -1;
-    } else if (positiveA > positiveB) {
-      return 1;
-    }
-
-    if (a < b) {
-      return -1;
-    } else if (a > b) {
-      return 1;
-    }
-
-    return 0;
-  });
 }
 
 function createConnections(graph, connections) {
@@ -188,12 +167,12 @@ function tarjan(graph, verticesQt) {
             while (tarjanStack[tarjanStack.length - 1] !== vertex) {
               componentMember = tarjanStack.pop();
               graph[componentMember].visited = false;
-              component.add(`${componentMember}`);
+              component.add(componentMember.toString());
             }
 
             componentMember = tarjanStack.pop();
             graph[componentMember].visited = false;
-            component.add(`${componentMember}`);
+            component.add(componentMember.toString());
 
             if (component.size) {
               result.push(component);
@@ -215,13 +194,71 @@ function getUniqueLResults(connectedComponents) {
     component.forEach(vertex => {
       const normalizedVertex = Math.abs(parseInt(vertex, 10));
 
-      if (!result.has(`${normalizedVertex}`) && !result.has(`-${normalizedVertex}`)) {
+      if (!result.has(normalizedVertex.toString()) && !result.has(`-${normalizedVertex}`)) {
         result.add(vertex);
       }
     });
   });
 
-  return Array.from(result);
+  return result;
+}
+
+function getUniqueValidVariablesFromClauses(validVariables, clauses) {
+  const result = new Set();
+
+  clauses.forEach(clause => {
+    const firstVar = clause[0].toString();
+    const secondVar = clause[1] ? clause[1].toString() : undefined;
+
+    if (result.has(firstVar) || result.has(secondVar)) {
+      return;
+    }
+
+    if (validVariables.has(firstVar)) {
+      result.add(firstVar);
+      return;
+    }
+
+    if (validVariables.has(secondVar)) {
+      result.add(secondVar);
+      return;
+    }
+  });
+
+  return Array.from(result).sort((a, b) => {
+    const intA = parseInt(a, 10);
+    const intB = parseInt(b, 10);
+
+    if (intA > 0 && intB < 0) {
+      return -1;
+    }
+
+    if (intA < 0 && intB > 0) {
+      return 1;
+    }
+
+    if (intA > 0 && intB > 0) {
+      if (intA > intB) {
+        return 1;
+      }
+
+      if (intB > intA) {
+        return -1;
+      }
+    }
+
+    if (intA < 0 && intB < 0) {
+      if (intA > intB) {
+        return -1;
+      }
+
+      if (intB > intA) {
+        return 1;
+      }
+    }
+
+    return 0;
+  });
 }
 
 function solver(variablesQt, clauses) {
@@ -229,8 +266,8 @@ function solver(variablesQt, clauses) {
     console.time('graph_built');
     console.time('connected_components');
     console.time('checked_unsat');
-    console.time('got_results');
-    console.time('sorted');
+    console.time('got_valid_variables');
+    console.time('got_result');
   }
 
   const graph = buildImplicationGraph(clauses);
@@ -291,16 +328,16 @@ function solver(variablesQt, clauses) {
     console.timeEnd('checked_unsat');
   }
 
-  const result = getUniqueLResults(connectedComponents);
+  const validVariables = getUniqueLResults(connectedComponents);
 
   if (PROFILE) {
-    console.timeEnd('got_results');
+    console.timeEnd('got_valid_variables');
   }
 
-  sortWithNegativeKeys(result);
+  const result = getUniqueValidVariablesFromClauses(validVariables, clauses);
 
   if (PROFILE) {
-    console.timeEnd('sorted');
+    console.timeEnd('got_result');
   }
 
   return [
@@ -356,7 +393,7 @@ function test(outputType, onlyTest) {
           [-2, -4],
         ]
       ),
-      expected: 'SATISFIABLE -1 2 3 -4'
+      expected: 'SATISFIABLE 2 3 -1 -4'
     },
     {
       id: 5,
@@ -382,7 +419,7 @@ function test(outputType, onlyTest) {
           [-1, -2],
         ]
       ),
-      expected: 'SATISFIABLE -1 2'
+      expected: 'SATISFIABLE 2 -1'
     },
     {
       id: 7,
@@ -418,7 +455,7 @@ function test(outputType, onlyTest) {
           [-29, -36],
         ]
       ),
-      expected: 'SATISFIABLE 8 7 44 -46 -68 -29'
+      expected: 'SATISFIABLE 7 8 44 -29 -46 -68'
     },
     {
       id: 9,
@@ -437,7 +474,7 @@ function test(outputType, onlyTest) {
           [-5, -3],
         ]
       ),
-      expected: 'SATISFIABLE 12 14 -8 -13 -2 -18 -5'
+      expected: 'SATISFIABLE 12 14 -2 -5 -8 -13 -18'
     },
     {
       id: 10,
@@ -456,7 +493,7 @@ function test(outputType, onlyTest) {
           [-3, -2],
         ]
       ),
-      expected: ' SATISFIABLE 7 9 -4 -8 -1 -11 -3'
+      expected: ' SATISFIABLE 7 9 -1 -3 -4 -8 -11'
     },
   ];
 
