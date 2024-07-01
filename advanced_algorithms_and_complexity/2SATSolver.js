@@ -53,13 +53,6 @@ const readLines = () => {
   });
 };
 
-function createConnections(graph, connections) {
-  connections.forEach(([origin, destiny]) => {
-    graph[origin].edges.add(destiny.toString());
-    graph[destiny].reverseEdges.add(origin.toString());
-  });
-}
-
 function invertL(l) {
   const stringL = l.toString();
   return stringL.indexOf('-') > -1 ? stringL.replace('-', '') : `-${stringL}`;
@@ -71,17 +64,18 @@ function buildImplicationGraph(clauses) {
 
   clauses.forEach(clause => {
     const invertedL1 = invertL(clause[0]);
-    const invertedL2 = clause[1] ? invertL(clause[1]) : undefined;
 
     if (clause.length === 2) {
+      const invertedL2 = invertL(clause[1]);
+
       //First directed edge -l1 -> l2
-      connections.push([invertedL1, clause[1]]);
+      connections.push([invertedL1, clause[1].toString()]);
 
       //Second directed edge -l2 -> l1
-      connections.push([invertedL2, clause[0]]);
+      connections.push([invertedL2, clause[0].toString()]);
     } else {
       //Only one directed edge -l1 -> l1
-      connections.push([invertedL1, clause[0]]);
+      connections.push([invertedL1, clause[0].toString()]);
     }
   });
 
@@ -93,7 +87,10 @@ function buildGraph(connections) {
     time: 0,
   };
 
-  connections.forEach(([origin, destiny]) => {
+  connections.forEach(([originInt, destinyInt]) => {
+    const origin = originInt.toString();
+    const destiny = destinyInt.toString();
+
     if (!graph[origin]) {
       graph[origin] = {
         discovery: -1,
@@ -114,18 +111,11 @@ function buildGraph(connections) {
       };
     }
 
-    graph[origin].edges.add(destiny.toString());
-    graph[destiny].reverseEdges.add(origin.toString());
-  });
-
-  return graph;
-}
-
-function createConnections(graph, connections) {
-  connections.forEach(([origin, destiny]) => {
     graph[origin].edges.add(destiny);
     graph[destiny].reverseEdges.add(origin);
   });
+
+  return graph;
 }
 
 function tarjan(graph, verticesQt) {
@@ -542,7 +532,42 @@ function test(outputType, onlyTest) {
         ]
       ),
       expected: 'UNSATISFIABLE'
-    }
+    },
+    {
+      id: 15,
+      run: () => solver(
+        2,
+        [
+          [1, 2],
+          [1, -2],
+        ]
+      ),
+      expected: 'SATISFIABLE 1'
+    },
+    {
+      id: 16,
+      run: () => solver(
+        1,
+        [
+          [1, -2],
+          [-1, -2],
+        ]
+      ),
+      expected: 'SATISFIABLE -2'
+    },
+    {
+      id: 17,
+      run: () => solver(
+        1,
+        [
+          [1, 2],
+          [1, -2],
+          [3, -4],
+          [-3, -4]
+        ]
+      ),
+      expected: 'SATISFIABLE 1 -4'
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -573,10 +598,13 @@ function test(outputType, onlyTest) {
   process.exit();
 }
 
-function getMinisatResult(id, clauses, highestVar) {
+function getMinisatResult(id, clauses, highestVar, forceVariables = []) {
   const INPUT_FILENAME = `${id}_sat_input.txt`;
   const OUTPUT_FILENAME = `sat_output.txt`;
-  const parsedClauses = clauses.map(clause => `${clause.join(' ')} 0`);
+  const parsedClauses = [];
+
+  clauses.forEach(clause => parsedClauses.push(`${clause.join(' ')} 0`));
+  forceVariables.forEach(variable => parsedClauses.push(`${variable} 0`));
 
   const SATInput = [
     `p cnf ${highestVar} ${clauses.length}`,
@@ -614,11 +642,16 @@ function getMinisatResult(id, clauses, highestVar) {
   ];
 }
 
-function stressTest(untillFail) {
-  let NUMBER_OF_TESTS = untillFail ? 1 : 1;
+function stressTest(untilFail) {
+  let NUMBER_OF_TESTS = untilFail ? 1 : 1;
+  let NUMBER_OF_TESTS_EXECUTED = {
+    total: 0,
+    SATISFIABLE: 0,
+    UNSATISFIABLE: 0,
+  };
   const MIN_VAR = 1;
-  const MAX_VAR = 10;
-  const MAX_CLAUSES = 50;
+  const MAX_VAR = 500;
+  const MAX_CLAUSES = 1000;
 
   const generateRandomVar = () => {
     const signal = Math.random() < 0.5 ? '+' : '-';
@@ -628,6 +661,13 @@ function stressTest(untillFail) {
   };
 
   while (NUMBER_OF_TESTS--) {
+    if (untilFail && NUMBER_OF_TESTS_EXECUTED.total % 5 === 0) {
+      console.clear();
+      console.log(`Total ${NUMBER_OF_TESTS_EXECUTED.total} tests passed!`);
+      console.log(`    SATISFIABLE: ${NUMBER_OF_TESTS_EXECUTED.SATISFIABLE}`);
+      console.log(`    UNSATISFIABLE: ${NUMBER_OF_TESTS_EXECUTED.UNSATISFIABLE}`);
+    }
+
     const clauses = [];
     const clausesQt = Math.random() * (MAX_CLAUSES - 2) + 2;
     let highestVar = 0;
@@ -641,11 +681,11 @@ function stressTest(untillFail) {
       clauses.push([var1, var2]);
     }
 
-    const minisatResult = getMinisatResult(NUMBER_OF_TESTS + 1, clauses, highestVar).join(' ');
     let codeResult = solver(highestVar, clauses);
+    let codeVariables = [];
 
     if (codeResult[1]) {
-      codeResult[1] = codeResult[1].split(' ').sort((a, b) => {
+      codeVariables = codeResult[1].split(' ').sort((a, b) => {
         const absA = Math.abs(parseInt(a, 10));
         const absB = Math.abs(parseInt(b, 10));
 
@@ -658,18 +698,25 @@ function stressTest(untillFail) {
         }
 
         return 0;
-      }).join(' ');
+      });
+
+      codeResult[1] = codeVariables.join(' ');
     }
 
-    codeResult = codeResult.join(' ');
+    const minisatResult = getMinisatResult(NUMBER_OF_TESTS + 1, clauses, highestVar, codeVariables);
 
-    if (minisatResult !== codeResult) {
-      console.log(`[X] Failed test ${NUMBER_OF_TESTS + 1}`);
+    NUMBER_OF_TESTS_EXECUTED[minisatResult[0]]++;
+
+    if (minisatResult[0] !== codeResult[0]) {
+      console.clear();
+      console.log(`[X] Failed test ${untilFail ? NUMBER_OF_TESTS_EXECUTED.total : NUMBER_OF_TESTS + 1}`);
       console.log(` -  Minisat: ${minisatResult}`);
       console.log(` -  Code: ${codeResult}`);
-    } else if (untillFail) {
+    } else if (untilFail) {
       NUMBER_OF_TESTS = 1;
     }
+
+    NUMBER_OF_TESTS_EXECUTED.total++;
   }
 
   process.exit();
@@ -679,7 +726,7 @@ if (process && process.argv && process.argv.includes('-st')) {
   VERBOSE = process.argv.includes('-v');
   PROFILE = process.argv.includes('-p');
 
-  return stressTest(process.argv.includes('-untillFail'));
+  return stressTest(process.argv.includes('-untilFail'));
 }
 
 if (process && process.argv && process.argv.includes('-t')) {
