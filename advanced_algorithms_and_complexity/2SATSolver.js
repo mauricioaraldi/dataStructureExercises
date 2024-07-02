@@ -11,6 +11,7 @@
 
 let VERBOSE = false;
 let PROFILE = false;
+let GRAPH_TIME = 0;
 
 const fs = require('fs');
 const childProcess = require('child_process');
@@ -83,9 +84,7 @@ function buildImplicationGraph(clauses) {
 }
 
 function buildGraph(connections) {
-  const graph = {
-    time: 0,
-  };
+  const graph = {};
 
   connections.forEach(([originInt, destinyInt]) => {
     const origin = originInt.toString();
@@ -133,19 +132,23 @@ function tarjan(graph, verticesQt) {
         let { vertex, state } = executionStack.pop();
 
         if (state === 0) {
-          graph[vertex].discovery = graph[vertex].low = ++graph.time;
+          graph[vertex].discovery = graph[vertex].low = ++GRAPH_TIME;
           tarjanStack.push(vertex);
           graph[vertex].visited = true;
 
           executionStack.push({vertex: vertex, state: 1});
 
-          Array.from(graph[vertex].edges).forEach(neighbor => {
+          const neighbors = Array.from(graph[vertex].edges).sort(sortVariables).reverse();
+
+          neighbors.forEach(neighbor => {
             if (graph[neighbor].discovery === -1) {
               executionStack.push({vertex: neighbor, state: 0});
             }
           });
         } else {
-          Array.from(graph[vertex].edges).forEach(neighbor => {
+          const neighbors = Array.from(graph[vertex].edges).sort(sortVariables).reverse();
+
+          neighbors.forEach(neighbor => {
             if (graph[neighbor].visited) {
               graph[vertex].low = Math.min(graph[neighbor].low, graph[vertex].low);
             }
@@ -175,6 +178,41 @@ function tarjan(graph, verticesQt) {
   }
 
   return result;
+}
+
+function sortVariables(a, b) {
+  const intA = parseInt(a, 10);
+  const intB = parseInt(b, 10);
+
+  if (intA > 0 && intB < 0) {
+    return -1;
+  }
+
+  if (intA < 0 && intB > 0) {
+    return 1;
+  }
+
+  if (intA > 0 && intB > 0) {
+    if (intA > intB) {
+      return 1;
+    }
+
+    if (intB > intA) {
+      return -1;
+    }
+  }
+
+  if (intA < 0 && intB < 0) {
+    if (intA > intB) {
+      return -1;
+    }
+
+    if (intB > intA) {
+      return 1;
+    }
+  }
+
+  return 0;
 }
 
 function getUniqueLResults(connectedComponents, clausesVariables, clauses) {
@@ -214,40 +252,7 @@ function getUniqueLResults(connectedComponents, clausesVariables, clauses) {
     }
   });
 
-  return Array.from(result).sort((a, b) => {
-    const intA = parseInt(a, 10);
-    const intB = parseInt(b, 10);
-
-    if (intA > 0 && intB < 0) {
-      return -1;
-    }
-
-    if (intA < 0 && intB > 0) {
-      return 1;
-    }
-
-    if (intA > 0 && intB > 0) {
-      if (intA > intB) {
-        return 1;
-      }
-
-      if (intB > intA) {
-        return -1;
-      }
-    }
-
-    if (intA < 0 && intB < 0) {
-      if (intA > intB) {
-        return -1;
-      }
-
-      if (intB > intA) {
-        return 1;
-      }
-    }
-
-    return 0;
-  });
+  return Array.from(result).sort(sortVariables);
 }
 
 function getClausesVariables(clauses) {
@@ -492,7 +497,7 @@ function test(outputType, onlyTest) {
           [-3, -2],
         ]
       ),
-      expected: ' SATISFIABLE 7 9 -1 -3 -4 -8 -11'
+      expected: 'SATISFIABLE 7 9 -1 -3 -4 -8 -11'
     },
     {
       id: 11,
@@ -553,7 +558,7 @@ function test(outputType, onlyTest) {
           [-1, -2],
         ]
       ),
-      expected: 'SATISFIABLE -2'
+      expected: 'SATISFIABLE 1 -2'
     },
     {
       id: 17,
@@ -566,7 +571,7 @@ function test(outputType, onlyTest) {
           [-3, -4]
         ]
       ),
-      expected: 'SATISFIABLE 1 -4'
+      expected: 'SATISFIABLE 1 3 -4'
     },
   ];
 
