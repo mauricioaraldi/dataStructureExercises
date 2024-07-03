@@ -122,6 +122,41 @@ function tarjan(graph, verticesQt) {
   const tarjanStack = [];
   const executionStack = [];
 
+  const sortVariables = (a, b) => {
+    const intA = parseInt(a, 10);
+    const intB = parseInt(b, 10);
+
+    if (intA > 0 && intB > 0) {
+      if (intA > intB) {
+        return -1;
+      }
+
+      if (intB > intA) {
+        return 1;
+      }
+    }
+
+    if (intA < 0 && intB < 0) {
+      if (intA > intB) {
+        return 1;
+      }
+
+      if (intB > intA) {
+        return -1;
+      }
+    }
+
+    if (intA > intB) {
+      return -1;
+    }
+
+    if (intA < intB) {
+      return 1;
+    }
+
+    return 0;
+  };
+
   for (let i in graph) {
     let component = new Set();
 
@@ -138,7 +173,7 @@ function tarjan(graph, verticesQt) {
 
           executionStack.push({vertex: vertex, state: 1});
 
-          const neighbors = Array.from(graph[vertex].edges).sort(sortVariables).reverse();
+          const neighbors = Array.from(graph[vertex].edges).sort(sortVariables);
 
           neighbors.forEach(neighbor => {
             if (graph[neighbor].discovery === -1) {
@@ -146,7 +181,7 @@ function tarjan(graph, verticesQt) {
             }
           });
         } else {
-          const neighbors = Array.from(graph[vertex].edges).sort(sortVariables).reverse();
+          const neighbors = Array.from(graph[vertex].edges).sort(sortVariables);
 
           neighbors.forEach(neighbor => {
             if (graph[neighbor].visited) {
@@ -178,41 +213,6 @@ function tarjan(graph, verticesQt) {
   }
 
   return result;
-}
-
-function sortVariables(a, b) {
-  const intA = parseInt(a, 10);
-  const intB = parseInt(b, 10);
-
-  if (intA > 0 && intB < 0) {
-    return -1;
-  }
-
-  if (intA < 0 && intB > 0) {
-    return 1;
-  }
-
-  if (intA > 0 && intB > 0) {
-    if (intA > intB) {
-      return 1;
-    }
-
-    if (intB > intA) {
-      return -1;
-    }
-  }
-
-  if (intA < 0 && intB < 0) {
-    if (intA > intB) {
-      return -1;
-    }
-
-    if (intB > intA) {
-      return 1;
-    }
-  }
-
-  return 0;
 }
 
 function getUniqueLResults(connectedComponents, clausesVariables, clauses) {
@@ -252,7 +252,20 @@ function getUniqueLResults(connectedComponents, clausesVariables, clauses) {
     }
   });
 
-  return Array.from(result).sort(sortVariables);
+  return Array.from(result).sort((a, b) => {
+    const absA = Math.abs(parseInt(a, 10));
+    const absB = Math.abs(parseInt(b, 10));
+
+    if (absA > absB) {
+      return 1;
+    }
+
+    if (absA < absB) {
+      return -1;
+    }
+
+    return 0;
+  });
 }
 
 function getClausesVariables(clauses) {
@@ -397,7 +410,7 @@ function test(outputType, onlyTest) {
           [-2, -4],
         ]
       ),
-      expected: 'SATISFIABLE 2 3 -1 -4'
+      expected: 'SATISFIABLE -1 2 3 -4'
     },
     {
       id: 5,
@@ -423,7 +436,7 @@ function test(outputType, onlyTest) {
           [-1, -2],
         ]
       ),
-      expected: 'SATISFIABLE 2 -1'
+      expected: 'SATISFIABLE -1 2'
     },
     {
       id: 7,
@@ -459,7 +472,7 @@ function test(outputType, onlyTest) {
           [-29, -36],
         ]
       ),
-      expected: 'SATISFIABLE 7 8 44 -29 -46 -68'
+      expected: 'SATISFIABLE 7 8 -29 44 -46 -68'
     },
     {
       id: 9,
@@ -478,7 +491,7 @@ function test(outputType, onlyTest) {
           [-5, -3],
         ]
       ),
-      expected: 'SATISFIABLE 12 14 -2 -5 -8 -13 -18'
+      expected: 'SATISFIABLE -2 -5 -8 12 -13 14 -18'
     },
     {
       id: 10,
@@ -497,7 +510,7 @@ function test(outputType, onlyTest) {
           [-3, -2],
         ]
       ),
-      expected: 'SATISFIABLE 7 9 -1 -3 -4 -8 -11'
+      expected: 'SATISFIABLE -1 -3 -4 7 -8 9 -11'
     },
     {
       id: 11,
@@ -572,6 +585,42 @@ function test(outputType, onlyTest) {
         ]
       ),
       expected: 'SATISFIABLE 1 3 -4'
+    },
+    {
+      id: 18,
+      run: () => solver(
+        1,
+        [
+          [6],
+          [6],
+          [6],
+        ]
+      ),
+      expected: 'SATISFIABLE 6'
+    },
+    {
+      id: 19,
+      run: () => solver(
+        1,
+        [
+          [2, 2],
+          [4, 4],
+          [2, 2],
+        ]
+      ),
+      expected: 'SATISFIABLE 2 4'
+    },
+    {
+      id: 20,
+      run: () => solver(
+        1,
+        [
+          [-2, -2],
+          [4, 4],
+          [2, 2],
+        ]
+      ),
+      expected: 'UNSATISFIABLE'
     },
   ];
 
