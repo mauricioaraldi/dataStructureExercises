@@ -698,7 +698,7 @@ function getMinisatResult(id, clauses, highestVar, forceVariables = []) {
   ];
 }
 
-function stressTest(untilFail) {
+function stressTest(untilFail, forceAllVariables) {
   let NUMBER_OF_TESTS = untilFail ? 1 : 1;
   let NUMBER_OF_TESTS_EXECUTED = {
     total: 0,
@@ -706,14 +706,25 @@ function stressTest(untilFail) {
     UNSATISFIABLE: 0,
   };
   const MIN_VAR = 1;
-  const MAX_VAR = 500;
-  const MAX_CLAUSES = 1000;
+  const MAX_VAR = 50000;
+  const MAX_CLAUSES = 100000;
+  const usedVarNumbers = new Set();
 
-  const generateRandomVar = () => {
-    const signal = Math.random() < 0.5 ? '+' : '-';
-    const number = Math.random() * (MAX_VAR - MIN_VAR) + MIN_VAR;
+  const generateRandomVar = (forceUnused) => {
+    const signal = Math.random() < 0.9 ? '+' : '-';
+    const number = Math.random() * (MAX_VAR - MIN_VAR) + MIN_VAR + 1;
 
-    return parseInt(`${signal}${number}`, 10);
+    if (!forceUnused || !usedVarNumbers.has(number)) {
+      return parseInt(`${signal}${number}`, 10);
+    }
+
+    for (let i = MIN_VAR; i <= MAX_VAR; i++) {
+      if (!usedVarNumbers.has(i)) {
+        return parseInt(`${signal}${i}`, 10);
+      }
+    }
+
+    throw new Error('Unable to generate unused var');
   };
 
   while (NUMBER_OF_TESTS--) {
@@ -725,7 +736,8 @@ function stressTest(untilFail) {
     }
 
     const clauses = [];
-    const clausesQt = Math.random() * (MAX_CLAUSES - 2) + 2;
+    // const clausesQt = Math.random() * (MAX_CLAUSES - 2) + 2;
+    const clausesQt = MAX_CLAUSES;
     let highestVar = 0;
 
     for (let c = 0; c < clausesQt; c++) {
@@ -759,11 +771,13 @@ function stressTest(untilFail) {
       codeResult[1] = codeVariables.join(' ');
     }
 
+    NUMBER_OF_TESTS_EXECUTED[codeResult[0]]++;
+
     const minisatResult = getMinisatResult(NUMBER_OF_TESTS + 1, clauses, highestVar, codeVariables);
 
-    NUMBER_OF_TESTS_EXECUTED[minisatResult[0]]++;
+    console.log(codeResult[0], minisatResult[0]);
 
-    if (minisatResult[0] !== codeResult[0]) {
+    if (minisatResult.join(' ').trim() !== codeResult.join(' ').trim()) {
       console.clear();
       console.log(`[X] Failed test ${untilFail ? NUMBER_OF_TESTS_EXECUTED.total : NUMBER_OF_TESTS + 1}`);
       console.log(` -  Minisat: ${minisatResult}`);
@@ -782,7 +796,7 @@ if (process && process.argv && process.argv.includes('-st')) {
   VERBOSE = process.argv.includes('-v');
   PROFILE = process.argv.includes('-p');
 
-  return stressTest(process.argv.includes('-untilFail'));
+  return stressTest(process.argv.includes('-untilFail'), process.argv.includes('-forceAllVariables'));
 }
 
 if (process && process.argv && process.argv.includes('-t')) {
