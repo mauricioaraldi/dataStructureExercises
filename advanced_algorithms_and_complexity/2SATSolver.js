@@ -215,42 +215,28 @@ function tarjan(graph, verticesQt) {
   return result;
 }
 
-function getUniqueLResults(connectedComponents, clausesVariables, clauses) {
+function getUniqueLResults(connectedComponents, clausesVariables, clauses, variablesQt) {
   const result = new Set();
-  const uniqueVariablesFromConnectedComponents = new Set();
 
   connectedComponents.forEach(component => {
     component.forEach(vertex => {
       const normalizedVertex = Math.abs(parseInt(vertex, 10)).toString();
 
       if (
-        !uniqueVariablesFromConnectedComponents.has(normalizedVertex)
-        && !uniqueVariablesFromConnectedComponents.has(`-${normalizedVertex}`)
+        !result.has(normalizedVertex)
+        && !result.has(`-${normalizedVertex}`)
         && clausesVariables.has(vertex)
       ) {
-        uniqueVariablesFromConnectedComponents.add(vertex);
+        result.add(vertex);
       }
     });
   });
 
-  clauses.forEach(clause => {
-    const firstVar = clause[0].toString();
-    const secondVar = clause[1] ? clause[1].toString() : undefined;
-
-    if (result.has(firstVar) || result.has(secondVar)) {
-      return;
+  for (let i = 1; i <= variablesQt; i++) {
+    if (!result.has(i.toString()) && !result.has(`-${i}`)) {
+      result.add(`-${i}`)
     }
-
-    if (uniqueVariablesFromConnectedComponents.has(firstVar)) {
-      result.add(firstVar);
-      return;
-    }
-
-    if (uniqueVariablesFromConnectedComponents.has(secondVar)) {
-      result.add(secondVar);
-      return;
-    }
-  });
+  }
 
   return Array.from(result).sort((a, b) => {
     const absA = Math.abs(parseInt(a, 10));
@@ -347,7 +333,7 @@ function solver(variablesQt, clauses) {
     console.timeEnd('checked_unsat');
   }
 
-  const result = getUniqueLResults(connectedComponents, clausesVariables, clauses);
+  const result = getUniqueLResults(connectedComponents, clausesVariables, clauses, variablesQt);
 
   if (PROFILE) {
     console.timeEnd('got_valid_variables');
@@ -462,17 +448,17 @@ function test(outputType, onlyTest) {
     {
       id: 8,
       run: () => solver(
-        82,
+        12,
         [
-          [8, 51],
-          [-46, -82],
-          [-68, 7],
-          [44, -7],
-          [7, 6],
-          [-29, -36],
+          [3, 8],
+          [-7, -10],
+          [-9, 2],
+          [6, -2],
+          [2, 1],
+          [-4, -5],
         ]
       ),
-      expected: 'SATISFIABLE 7 8 -29 44 -46 -68'
+      expected: 'SATISFIABLE 1 2 3 -4 -5 6 -7 8 -9 -10 -11 -12'
     },
     {
       id: 9,
@@ -491,7 +477,7 @@ function test(outputType, onlyTest) {
           [-5, -3],
         ]
       ),
-      expected: 'SATISFIABLE -2 -5 -8 12 -13 14 -18'
+      expected: 'SATISFIABLE -1 -2 -3 -4 -5 -6 -7 -8 -9 -10 11 12 -13 14 -15 -16 -17 -18'
     },
     {
       id: 10,
@@ -510,7 +496,7 @@ function test(outputType, onlyTest) {
           [-3, -2],
         ]
       ),
-      expected: 'SATISFIABLE -1 -3 -4 7 -8 9 -11'
+      expected: 'SATISFIABLE -1 -2 -3 -4 -5 6 7 -8 9 -10 -11'
     },
     {
       id: 11,
@@ -560,7 +546,7 @@ function test(outputType, onlyTest) {
           [1, -2],
         ]
       ),
-      expected: 'SATISFIABLE 1'
+      expected: 'SATISFIABLE 1 2'
     },
     {
       id: 16,
@@ -584,31 +570,31 @@ function test(outputType, onlyTest) {
           [-3, -4]
         ]
       ),
-      expected: 'SATISFIABLE 1 3 -4'
+      expected: 'SATISFIABLE 1 2 3 -4'
     },
     {
       id: 18,
       run: () => solver(
-        1,
+        6,
         [
           [6],
           [6],
           [6],
         ]
       ),
-      expected: 'SATISFIABLE 6'
+      expected: 'SATISFIABLE -1 -2 -3 -4 -5 6'
     },
     {
       id: 19,
       run: () => solver(
-        1,
+        4,
         [
           [2, 2],
           [4, 4],
           [2, 2],
         ]
       ),
-      expected: 'SATISFIABLE 2 4'
+      expected: 'SATISFIABLE -1 2 -3 4'
     },
     {
       id: 20,
@@ -621,6 +607,22 @@ function test(outputType, onlyTest) {
         ]
       ),
       expected: 'UNSATISFIABLE'
+    },
+    {
+      id: 21,
+      run: () => solver(
+        6,
+        [
+          [1, 2],
+          [-2, 3],
+          [3, -4],
+          [-4, 5],
+          [5, -6],
+          [-1, -5],
+          [6, 1],
+        ]
+      ),
+      expected: 'SATISFIABLE 1 2 3 -4 -5 -6'
     },
   ];
 
