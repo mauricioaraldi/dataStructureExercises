@@ -278,18 +278,26 @@ function solver(variablesQt, clauses) {
   const graph = buildImplicationGraph(clauses);
 
   if (PROFILE) {
+    console.log('- - - - - - - - - -');
+    console.log(`Memory usage: ${parseInt((process.memoryUsage().heapUsed / 1024 / 1024), 10)} MB`);
     console.timeEnd('graph_built');
+    console.log('x x x x x x x x x x x');
   }
 
   const connectedComponents = tarjan(graph, variablesQt * 2);
 
   if (PROFILE) {
+    console.log('- - - - - - - - - -');
+    console.log(`Memory usage: ${parseInt((process.memoryUsage().heapUsed / 1024 / 1024), 10)} MB`);
     console.timeEnd('connected_components');
+    console.log('x x x x x x x x x x x');
   }
 
   if (VERBOSE) {
+    console.log('- - - - - - - - - -');
     console.log('Graph', '\n ', graph);
     console.log('Connected components', '\n ', connectedComponents);
+    console.log('x x x x x x x x x x x');
   }
 
   for (let componentIndex in connectedComponents) {
@@ -330,17 +338,26 @@ function solver(variablesQt, clauses) {
   }
 
   if (PROFILE) {
+    console.log('- - - - - - - - - -');
+    console.log(`Memory usage: ${parseInt((process.memoryUsage().heapUsed / 1024 / 1024), 10)} MB`);
     console.timeEnd('checked_unsat');
+    console.log('x x x x x x x x x x x');
   }
 
   const result = getUniqueLResults(connectedComponents, clausesVariables, clauses, variablesQt);
 
   if (PROFILE) {
+    console.log('- - - - - - - - - -');
+    console.log(`Memory usage: ${parseInt((process.memoryUsage().heapUsed / 1024 / 1024), 10)} MB`);
     console.timeEnd('got_valid_variables');
+    console.log('x x x x x x x x x x x');
   }
 
   if (PROFILE) {
+    console.log('- - - - - - - - - -');
+    console.log(`Memory usage: ${parseInt((process.memoryUsage().heapUsed / 1024 / 1024), 10)} MB`);
     console.timeEnd('got_result');
+    console.log('x x x x x x x x x x x');
   }
 
   return [
