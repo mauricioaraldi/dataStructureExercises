@@ -46,7 +46,9 @@ const readLines = () => {
 
         solver(variablesQt, clauses).forEach(line => process.stdout.write(`${line}\n`));
 
-        process.exit();
+        setTimeout(() => {
+          process.exit();
+        }, 500);
       }
     };
 
