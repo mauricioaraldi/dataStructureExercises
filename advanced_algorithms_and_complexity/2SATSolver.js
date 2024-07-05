@@ -656,7 +656,7 @@ function test(outputType, onlyTest) {
     const result = testCase.run();
 
     if (outputType === 'RESULT') {
-      console.log(result.join('\n'));
+      result.forEach(line => process.stdout.write(`${line}\n`));
     } else if (outputType === 'TEST') {
       if (result.join(' ').trim() === testCase.expected) {
         console.log(`[V] Passed test ${testCase.id}`);
@@ -715,6 +715,59 @@ function getMinisatResult(id, clauses, highestVar, forceVariables = []) {
   ];
 }
 
+function generateRandomTest(minVar, maxVar, clausesQt) {
+  const clauses = [];
+
+  const generateRandomVar = (forceUnused) => {
+    const signal = Math.random() < 0.9 ? '+' : '-';
+    const number = Math.random() * (maxVar - minVar) + minVar + 1;
+
+    if (!forceUnused || !usedVarNumbers.has(number)) {
+      return parseInt(`${signal}${number}`, 10);
+    }
+
+    for (let i = minVar; i <= maxVar; i++) {
+      if (!usedVarNumbers.has(i)) {
+        return parseInt(`${signal}${i}`, 10);
+      }
+    }
+
+    throw new Error('Unable to generate unused var');
+  };
+
+  let highestVar = 0;
+
+  for (let c = 0; c < clausesQt; c++) {
+    const var1 = generateRandomVar();
+    const var2 = generateRandomVar();
+
+    highestVar = Math.max(highestVar, Math.abs(var1), Math.abs(var2));
+
+    clauses.push([var1, var2]);
+  }
+
+  return {
+    clauses,
+    highestVar
+  };
+}
+
+function randomTest() {
+  const MIN_VAR = 1;
+  const MAX_VAR = 50000;
+  const MAX_CLAUSES = 100000;
+  // const CLAUSES_QT = Math.random() * (MAX_CLAUSES - 2) + 2;
+  const CLAUSES_QT = MAX_CLAUSES;
+  const usedVarNumbers = new Set();
+
+  const testCase = generateRandomTest(MIN_VAR, MAX_VAR, CLAUSES_QT);
+  const codeResult = solver(testCase.highestVar, testCase.clauses);
+
+  codeResult.forEach(line => process.stdout.write(`${line}\n`));
+
+  process.exit();
+}
+
 function stressTest(untilFail, forceAllVariables) {
   let NUMBER_OF_TESTS = untilFail ? 1 : 1;
   let NUMBER_OF_TESTS_EXECUTED = {
@@ -725,24 +778,9 @@ function stressTest(untilFail, forceAllVariables) {
   const MIN_VAR = 1;
   const MAX_VAR = 50000;
   const MAX_CLAUSES = 100000;
+  // const CLAUSES_QT = Math.random() * (MAX_CLAUSES - 2) + 2;
+  const CLAUSES_QT = MAX_CLAUSES;
   const usedVarNumbers = new Set();
-
-  const generateRandomVar = (forceUnused) => {
-    const signal = Math.random() < 0.9 ? '+' : '-';
-    const number = Math.random() * (MAX_VAR - MIN_VAR) + MIN_VAR + 1;
-
-    if (!forceUnused || !usedVarNumbers.has(number)) {
-      return parseInt(`${signal}${number}`, 10);
-    }
-
-    for (let i = MIN_VAR; i <= MAX_VAR; i++) {
-      if (!usedVarNumbers.has(i)) {
-        return parseInt(`${signal}${i}`, 10);
-      }
-    }
-
-    throw new Error('Unable to generate unused var');
-  };
 
   while (NUMBER_OF_TESTS--) {
     if (untilFail && NUMBER_OF_TESTS_EXECUTED.total % 5 === 0) {
@@ -752,21 +790,9 @@ function stressTest(untilFail, forceAllVariables) {
       console.log(`    UNSATISFIABLE: ${NUMBER_OF_TESTS_EXECUTED.UNSATISFIABLE}`);
     }
 
-    const clauses = [];
-    // const clausesQt = Math.random() * (MAX_CLAUSES - 2) + 2;
-    const clausesQt = MAX_CLAUSES;
-    let highestVar = 0;
+    const testCase = generateRandomTest(MIN_VAR, MAX_VAR, CLAUSES_QT);
 
-    for (let c = 0; c < clausesQt; c++) {
-      const var1 = generateRandomVar();
-      const var2 = generateRandomVar();
-
-      highestVar = Math.max(highestVar, Math.abs(var1), Math.abs(var2));
-
-      clauses.push([var1, var2]);
-    }
-
-    let codeResult = solver(highestVar, clauses);
+    let codeResult = solver(testCase.highestVar, testCase.clauses);
     let codeVariables = [];
 
     if (codeResult[1]) {
@@ -790,7 +816,12 @@ function stressTest(untilFail, forceAllVariables) {
 
     NUMBER_OF_TESTS_EXECUTED[codeResult[0]]++;
 
-    const minisatResult = getMinisatResult(NUMBER_OF_TESTS + 1, clauses, highestVar, codeVariables);
+    const minisatResult = getMinisatResult(
+      NUMBER_OF_TESTS + 1,
+      testCase.clauses,
+      testCase.highestVar,
+      forceAllVariables ? codeVariables : undefined
+    );
 
     console.log(codeResult[0], minisatResult[0]);
 
@@ -807,6 +838,13 @@ function stressTest(untilFail, forceAllVariables) {
   }
 
   process.exit();
+}
+
+if (process && process.argv && process.argv.includes('-rt')) {
+  VERBOSE = process.argv.includes('-v');
+  PROFILE = process.argv.includes('-p');
+
+  return randomTest();
 }
 
 if (process && process.argv && process.argv.includes('-st')) {
