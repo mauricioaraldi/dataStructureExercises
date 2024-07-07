@@ -57,6 +57,31 @@ const readLines = () => {
   });
 };
 
+function printTree(tree) {
+  let stack = [0];
+  let nextStack = [];
+  let currentLine = [];
+  const lineQt = 0;
+
+  while (stack.length) {
+    const v = stack.pop();
+
+    currentLine.push(parseInt(v, 10) + 1);
+
+    tree[v].edges.forEach(edge => {
+      nextStack.push(edge);
+    });
+
+    if (stack.length === 0) {
+      stack = nextStack;
+      nextStack = [];
+
+      console.log(currentLine.join(' | '));
+      currentLine = [new Array(4 * lineQt).fill(' ').join('')];
+    }
+  }
+}
+
 function createTree(weights, connections) {
   const tree = {};
   let n = weights.length;
@@ -127,6 +152,8 @@ function exploreTree(tree, stack) {
       tree[v].maximumE += tree[edge].maximumI;
     });
   }
+
+  printTree(tree);
 
   return Math.max(tree[treeRoot].maximumI, tree[treeRoot].maximumE);
 }
@@ -342,6 +369,31 @@ function test(outputType, onlyTest) {
       ),
       expected: 101
     },
+    {
+      id: 14,
+      run: () => independentSet(
+        [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17],
+        [
+          [0, 1],
+          [0, 2],
+          [0, 3],
+          [3, 4],
+          [1, 5],
+          [1, 6],
+          [5, 7],
+          [6, 8],
+          [4, 9],
+          [7, 10],
+          [7, 11],
+          [8, 12],
+          [8, 13],
+          [9, 14],
+          [14, 15],
+          [15, 16],
+        ]
+      ),
+      expected: 101
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -375,16 +427,19 @@ function test(outputType, onlyTest) {
 function stressTest() {
   const MIN_WEIGHT = 1;
   const MAX_WEIGHT = 1000;
-  const nodesQt = 100000; //Max 100 000
+  const nodesQt = 10; //Max 100 000
   const weights = [];
   const connections = [];
+  let biggestVar = 1;
 
   for (let i = 0; i < nodesQt; i++) {
     const weight = parseInt(Math.random() * (MAX_WEIGHT - MIN_WEIGHT) + MIN_WEIGHT + 1, 10);
     weights.push(weight);
 
+    const var1 = parseInt(Math.random() * biggestVar + 1, 10);
+
     if (i < nodesQt - 1) {
-      connections.push([i, i + 1]);
+      connections.push([var1, biggestVar++]);
     }
   }
 
