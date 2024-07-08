@@ -111,10 +111,13 @@ function printTree(tree, traverseOrder, codeResult) {
     if (codeResult) {
       if (codeResult === Math.max(maxI, maxE)) {
         console.log(`Passed test ${CURRENT_TEST}`);
+        // console.log(treeViewResult);
+        // console.log(`I: ${maxI} | E: ${maxE}`);
       } else {
         console.log(`Failed test ${CURRENT_TEST}`);
         console.log(treeViewResult);
         console.log(`I: ${maxI} | E: ${maxE}`);
+        console.log(`[X] Code looks incorrect: ${codeResult}`);
         TEST_PASSING = false;
       }
     }
@@ -469,6 +472,34 @@ function test(outputType, onlyTest) {
       ),
       expected: 6
     },
+    {
+      id: 16,
+      run: () => independentSet(
+        [1, 2, 3, 4, 5],
+        [
+          [0, 3],
+          [3, 1],
+          [0, 4],
+          [4, 2]
+        ]
+      ),
+      expected: 9
+    },
+    {
+      id: 17,
+      run: () => independentSet(
+        [1, 2, 3, 4, 5],
+        [
+          [1, 1],
+          [0, 1],
+          [1, 2],
+          [1, 3],
+          [1, 1],
+          [1, 4],
+        ]
+      ),
+      expected: 15
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -502,21 +533,53 @@ function test(outputType, onlyTest) {
 function stressTest() {
   let TEST_QUANTITY = 1000000;
   const MIN_WEIGHT = 1;
-  const MAX_WEIGHT = 100;
-  const MAX_NODE_QT = 100;
-  const nodesQt = parseInt(Math.random() * (MAX_NODE_QT - 1) + 1 + 1, 10); //Max 100 000
+  const MAX_WEIGHT = 10;
+  const MAX_NODE_QT = 10;
+  const nodesQt = parseInt(Math.random() * (MAX_NODE_QT - 1) + 2, 10); //Max 100 000
   const weights = [];
   const connections = [];
-  let biggestVar = 1;
+  const usedNumbers = [0];
 
-  for (let i = 0; i < nodesQt; i++) {
+  const getRandomNumber = (used = false, avoid) => {
+    if (used) {
+      const index = parseInt(Math.random() * (usedNumbers.length - 1) + 1, 10);
+
+      if (usedNumbers[index] !== avoid) {
+        return usedNumbers[index];
+      }
+
+      return usedNumbers[1];
+    }
+
+    const randomNumber = parseInt(Math.random() * nodesQt, 10);
+
+    if (usedNumbers.indexOf(randomNumber) === -1 && randomNumber !== avoid) {
+      usedNumbers.push(randomNumber);
+      return randomNumber;
+    }
+
+    for (let i = 1; i < nodesQt; i++) {
+      if (usedNumbers.indexOf(i) === -1 && randomNumber !== avoid) {
+        usedNumbers.push(i);
+        return i;
+      }
+    }
+  };
+
+  connections.push([0, getRandomNumber()]);
+  weights.push(parseInt(Math.random() * (MAX_WEIGHT - MIN_WEIGHT) + MIN_WEIGHT + 1, 10));
+
+  for (let i = 1; i < nodesQt; i++) {
     const weight = parseInt(Math.random() * (MAX_WEIGHT - MIN_WEIGHT) + MIN_WEIGHT + 1, 10);
     weights.push(weight);
 
-    const var1 = parseInt(Math.random() * biggestVar, 10);
-
     if (i < nodesQt - 1) {
-      connections.push([var1, biggestVar++]);
+      if (Math.random() > 0.5) {
+        connections.push([getRandomNumber(true), getRandomNumber()]);
+      } else {
+        const var1 = getRandomNumber();
+        connections.push([var1, getRandomNumber(true, var1)]);
+      }
     }
   }
 
