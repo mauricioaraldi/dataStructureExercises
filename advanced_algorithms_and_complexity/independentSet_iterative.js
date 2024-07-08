@@ -10,10 +10,14 @@
 // Example output: 11
 
 let VERBOSE = false;
+let TEST_PASSING = true;
+let CURRENT_TEST = 0;
+let STRESS_TESTING = false;
 
 const fs = require('fs');
 const childProcess = require('child_process');
 const readline = require('readline');
+const treeView = require('../text-treeview.js');
 
 const rl = readline.createInterface({
   input: process.stdin,
@@ -57,29 +61,75 @@ const readLines = () => {
   });
 };
 
-function printTree(tree) {
-  let stack = [0];
-  let nextStack = [];
-  let currentLine = [];
-  const lineQt = 0;
+function printTree(tree, traverseOrder, codeResult) {
+  const treeViewFormat = {};
+  const treeArray = [];
 
-  while (stack.length) {
-    const v = stack.pop();
+  let maxI = 0;
+  let maxE = 0;
 
-    currentLine.push(parseInt(v, 10) + 1);
+  for (let v in tree) {
+    tree[v].visited = false;
+  }
+
+  while (traverseOrder.length) {
+    const v = traverseOrder.pop();
+
+    treeViewFormat[v] = {
+      v: v,
+      text: `${v} [${tree[v].weight}]`,
+      children: [],
+    };
 
     tree[v].edges.forEach(edge => {
-      nextStack.push(edge);
+      if (tree[edge].visited) {
+        treeViewFormat[v].children.push(treeViewFormat[edge]);
+        delete treeViewFormat[edge];
+      }
     });
 
-    if (stack.length === 0) {
-      stack = nextStack;
-      nextStack = [];
+    tree[v].visited = true;
+  }
 
-      console.log(currentLine.join(' | '));
-      currentLine = [new Array(4 * lineQt).fill(' ').join('')];
+  for (let v in treeViewFormat) {
+    treeArray.push(treeViewFormat[v]);
+  }
+
+  const treeViewResult = treeView(treeArray, {
+    format: (indents, treeNode, node, parentNode) => {
+      if (indents.length % 2 === 0) {
+        maxI += tree[node.v].weight;
+      } else {
+        maxE += tree[node.v].weight;
+      }
+
+      return `${indents.join('')}${treeNode}${node.text}\n`;
+    },
+  });
+
+  if (STRESS_TESTING) {
+    if (codeResult) {
+      if (codeResult === Math.max(maxI, maxE)) {
+        console.log(`Passed test ${CURRENT_TEST}`);
+      } else {
+        console.log(`Failed test ${CURRENT_TEST}`);
+        console.log(treeViewResult);
+        console.log(`I: ${maxI} | E: ${maxE}`);
+        TEST_PASSING = false;
+      }
+    }
+  } else {
+    console.log(treeViewResult);
+    console.log(`I: ${maxI} | E: ${maxE}`);
+    if (codeResult) {
+      if (codeResult === Math.max(maxI, maxE)) {
+        console.log(`[V] Code looks correct: ${codeResult}`);
+      } else {
+        console.log(`[X] Code looks incorrect: ${codeResult}`);
+      }
     }
   }
+
 }
 
 function createTree(weights, connections) {
@@ -88,81 +138,94 @@ function createTree(weights, connections) {
 
   while (n--) {
     tree[n] = {
+      visited: false,
       weight: weights[n],
       edges: new Set(),
-      reverseEdges: new Set(),
       maximumI: weights[n], // Self and grandchildren
       maximumE: 0, // Only direct children
     };
   }
 
   connections.forEach(connection => {
-    connection.sort((a, b) => {
-      if (a > b) {
-        return 1;
-      }
-
-      if (a < b) {
-        return -1
-      }
-
-      return 0;
-    });
-
     tree[connection[0]].edges.add(connection[1].toString());
-    tree[connection[1]].reverseEdges.add(connection[0].toString());
+    tree[connection[1]].edges.add(connection[0].toString());
   });
 
   return tree;
 }
 
-function traverseOrder(tree, v) {
+function traverseOrder(tree, v, nodesQt) {
   const order = [v];
   const queue = [v];
 
   while (queue.length) {
     const node = queue.shift();
 
+    tree[node].visited = true;
+
     tree[node].edges.forEach(edge => {
-      order.push(edge);
-      queue.push(edge);
+      if (!tree[edge].visited) {
+        order.push(edge);
+        queue.push(edge);
+      }
     });
+
+    if (queue.length === 0) {
+      for (let i = 0; i < nodesQt; i++) {
+        if (!tree[i.toString()].visited) {
+          queue.push(i.toString());
+          break;
+        }
+      }
+    }
   }
 
   return order;
 }
 
-function exploreTree(tree, stack) {
+function exploreTree(tree, stack, traverseOrder) {
   const treeRoot = stack[0];
 
   while (stack.length) {
     const v = stack.pop();
 
-   if (tree[v].edges.size === 0) {
-      continue;
-    }
-
     tree[v].edges.forEach(edge => {
-      tree[edge].edges.forEach(subEdge => {
-        tree[v].maximumI += tree[subEdge].maximumI;
-      });
+      if (tree[edge].visited) {
+        tree[edge].edges.forEach(subEdge => {
+          if (tree[subEdge].visited) {
+            tree[v].maximumI += tree[subEdge].maximumI;
+          }
+        });
+      }
     });
 
     tree[v].edges.forEach(edge => {
-      tree[v].maximumE += tree[edge].maximumI;
+      if (tree[edge].visited) {
+        tree[v].maximumE += tree[edge].maximumI;
+      }
     });
+
+    tree[v].visited = true;
   }
 
-  printTree(tree);
+  const result = Math.max(tree[treeRoot].maximumI, tree[treeRoot].maximumE);
 
-  return Math.max(tree[treeRoot].maximumI, tree[treeRoot].maximumE);
+  if (VERBOSE) {
+    printTree(tree, traverseOrder, result);
+  }
+
+  return result;
 }
 
 function independentSet(weights, connections) {
   const tree = createTree(weights, connections);
-  const order = traverseOrder(tree, '0');
+  const order = traverseOrder(tree, '0', weights.length);
 
-  return exploreTree(tree, order);
+  for (let v in tree) {
+    tree[v].visited = false;
+  }
+
+  return exploreTree(tree, [...order], order);
 }
 
 function test(outputType, onlyTest) {
@@ -394,6 +457,18 @@ function test(outputType, onlyTest) {
       ),
       expected: 101
     },
+    {
+      id: 15,
+      run: () => independentSet(
+        [1, 2, 3],
+        [
+          [0, 1],
+          [1, 2],
+          [2, 0],
+        ]
+      ),
+      expected: 6
+    },
   ];
 
   if (onlyTest !== undefined) {
@@ -425,9 +500,11 @@ function test(outputType, onlyTest) {
 }
 
 function stressTest() {
+  let TEST_QUANTITY = 1000000;
   const MIN_WEIGHT = 1;
-  const MAX_WEIGHT = 1000;
-  const nodesQt = 10; //Max 100 000
+  const MAX_WEIGHT = 100;
+  const MAX_NODE_QT = 100;
+  const nodesQt = parseInt(Math.random() * (MAX_NODE_QT - 1) + 1 + 1, 10); //Max 100 000
   const weights = [];
   const connections = [];
   let biggestVar = 1;
@@ -436,19 +513,30 @@ function stressTest() {
     const weight = parseInt(Math.random() * (MAX_WEIGHT - MIN_WEIGHT) + MIN_WEIGHT + 1, 10);
     weights.push(weight);
 
-    const var1 = parseInt(Math.random() * biggestVar + 1, 10);
+    const var1 = parseInt(Math.random() * biggestVar, 10);
 
     if (i < nodesQt - 1) {
       connections.push([var1, biggestVar++]);
     }
   }
 
-  console.log(independentSet(weights, connections));
+  CURRENT_TEST = TEST_QUANTITY;
+
+  while (CURRENT_TEST--) {
+    independentSet(weights, connections);
+
+    if (!TEST_PASSING) {
+      process.exit();
+    }
+  }
 
   process.exit();
 }
 
 if (process && process.argv && process.argv.includes('-st')) {
+  STRESS_TESTING = true;
+  VERBOSE = process.argv.includes('-v');
+
   stressTest();
 }
 
