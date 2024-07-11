@@ -144,8 +144,7 @@ function createTree(weights, connections) {
       visited: false,
       weight: weights[n],
       edges: new Set(),
-      maximumI: weights[n], // Self and grandchildren
-      maximumE: 0, // Only direct children
+      maxWeight: 0,
     };
   }
 
@@ -191,12 +190,14 @@ function exploreTree(tree, stack, traverseOrder) {
 
   while (stack.length) {
     const v = stack.pop();
+    let maxI = tree[v].weight;
+    let maxE = 0;
 
     tree[v].edges.forEach(edge => {
       if (tree[edge].visited) {
         tree[edge].edges.forEach(subEdge => {
           if (tree[subEdge].visited) {
-            tree[v].maximumI += tree[subEdge].maximumI;
+            maxI += tree[subEdge].maxWeight;
           }
         });
       }
@@ -204,14 +205,15 @@ function exploreTree(tree, stack, traverseOrder) {
 
     tree[v].edges.forEach(edge => {
       if (tree[edge].visited) {
-        tree[v].maximumE += tree[edge].maximumI;
+        maxE += tree[edge].maxWeight;
       }
     });
 
+    tree[v].maxWeight = Math.max(maxI, maxE);
     tree[v].visited = true;
   }
 
-  const result = Math.max(tree[treeRoot].maximumI, tree[treeRoot].maximumE);
+  const result = tree[treeRoot].maxWeight;
 
   if (VERBOSE) {
     printTree(tree, traverseOrder, result);
@@ -312,7 +314,7 @@ function test(outputType, onlyTest) {
           [8, 9],
         ]
       ),
-      expected: 28
+      expected: 31
     },
     {
       id: 7,
@@ -328,7 +330,7 @@ function test(outputType, onlyTest) {
           [2, 7],
         ]
       ),
-      expected: 19
+      expected: 22
     },
     {
       id: 8,
@@ -344,7 +346,7 @@ function test(outputType, onlyTest) {
           [2, 7],
         ]
       ),
-      expected: 20
+      expected: 21
     },
     {
       id: 9,
@@ -391,7 +393,7 @@ function test(outputType, onlyTest) {
           [1, 6],
         ]
       ),
-      expected: 19
+      expected: 21
     },
     {
       id: 12,
@@ -408,7 +410,7 @@ function test(outputType, onlyTest) {
           [6, 8],
         ]
       ),
-      expected: 26
+      expected: 27
     },
     {
       id: 13,
@@ -433,7 +435,7 @@ function test(outputType, onlyTest) {
           [15, 16],
         ]
       ),
-      expected: 101
+      expected: 103
     },
     {
       id: 14,
@@ -458,7 +460,7 @@ function test(outputType, onlyTest) {
           [15, 16],
         ]
       ),
-      expected: 101
+      expected: 103
     },
     {
       id: 15,
@@ -470,7 +472,7 @@ function test(outputType, onlyTest) {
           [2, 0],
         ]
       ),
-      expected: 6
+      expected: 7
     },
     {
       id: 16,
@@ -498,7 +500,7 @@ function test(outputType, onlyTest) {
           [1, 4],
         ]
       ),
-      expected: 15
+      expected: 25
     },
   ];
 
