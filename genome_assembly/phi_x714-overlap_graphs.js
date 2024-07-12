@@ -42,8 +42,88 @@ const readLines = () => {
   rl.once('line', readLine);
 };
 
+function compareReads(a, b) {
+  console.log(a, b);
+  let windowSize = 1;
+
+  let startWeight = 0;
+  while (true) {
+    const query = a.slice(0, windowSize);
+    const matchIndex = b.indexOf(query);
+
+    if (matchIndex > -1) {
+      if (matchIndex === 0) {
+        startWeight = windowSize;
+      }
+
+      if (matchIndex + windowSize === b.length) {
+        startWeight = windowSize;
+        break;
+      }
+
+      windowSize++;
+    } else {
+      break;
+    }
+  }
+
+  windowSize = 1;
+
+  let endWeight = 0;
+  while (true) {
+    const query = a.slice(-windowSize);
+    const matchIndex = b.indexOf(query);
+
+    if (matchIndex > -1) {
+      if (matchIndex + windowSize === b.length) {
+        endWeight = windowSize;
+      }
+
+      if (windowSize === b.length) {
+        endWeight = windowSize;
+        break;
+      }
+
+      windowSize++;
+    } else {
+      break;
+    }
+  }
+
+  return { start: startWeight, end: endWeight };
+}
+
+function buildGraph(reads) {
+  const graph = {};
+
+  graph[0] = {
+    read: reads[0],
+    edges: [],
+  };
+
+  for (let i = 0; i < reads.length - 1; i++) {
+    for (let j = i + 1; j < reads.length; j++) {
+      graph[j] = {
+        read: reads[j],
+        edges: [],
+      };
+
+      const weight = compareReads(reads[i], reads[j]);
+      const edge = { node: j, weight };
+
+      graph[i].edges.push(edge);
+      graph[j].edges.push(edge);
+    }
+  }
+
+  return graph;
+}
+
 function assembly(reads) {
-  console.log(reads);
+  const graph = buildGraph(reads);
+
+  console.log(graph);
+
   return '';
 }
 
