@@ -43,7 +43,6 @@ const readLines = () => {
 };
 
 function compareReads(a, b) {
-  console.log(a, b);
   let windowSize = 1;
 
   let startWeight = 0;
@@ -97,15 +96,20 @@ function buildGraph(reads) {
   const graph = {};
 
   graph[0] = {
+    id: 0,
     read: reads[0],
     edges: [],
+    visited: false,
   };
 
   for (let i = 0; i < reads.length - 1; i++) {
     for (let j = i + 1; j < reads.length; j++) {
       graph[j] = {
+        id: j,
         read: reads[j],
         edges: [],
+        visited: false,
+        sorted: false,
       };
 
       const weight = compareReads(reads[i], reads[j]);
@@ -119,10 +123,55 @@ function buildGraph(reads) {
   return graph;
 }
 
+function getTraverseOrder(graph) {
+  const stack = new Set();
+  const order = [];
+
+  for (let key in graph) {
+    stack.add(key);
+  }
+
+  let currentNode = 0;
+
+  while (true) {
+    graph[currentNode].visited = true;
+    order.push(graph[currentNode]);
+
+    stack.delete(currentNode.toString());
+
+    if (stack.size === 0) {
+      break;
+    }
+
+    const nextNode = graph[currentNode].edges.reduce((acc, edge) => {
+      const edgeWeight = Math.max(edge.weight.start, edge.weight.end);
+
+      if (!graph[edge.node].visited && (!acc || edgeWeight > acc.weight)) {
+        return { node: edge.node, weight: edgeWeight };
+      }
+
+      return acc;
+    }, { node: undefined });
+
+    currentNode = nextNode.acc;
+
+    if (!currentNode) {
+      currentNode = Array.from(stack)[0];
+    }
+
+    if (!currentNode) {
+      break;
+    }
+  }
+
+  return order;
+}
+
 function assembly(reads) {
   const graph = buildGraph(reads);
+  const order = getTraverseOrder(graph);
 
-  console.log(graph);
+  console.log(order);
 
   return '';
 }
