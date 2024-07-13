@@ -46,6 +46,7 @@ function compareReads(a, b) {
   let windowSize = 1;
 
   let startWeight = 0;
+  let startMatchIndex = -1;
   while (true) {
     const query = a.slice(0, windowSize);
     const matchIndex = b.indexOf(query);
@@ -53,10 +54,12 @@ function compareReads(a, b) {
     if (matchIndex > -1) {
       if (matchIndex === 0) {
         startWeight = windowSize;
+        startMatchIndex = matchIndex;
       }
 
       if (matchIndex + windowSize === b.length) {
         startWeight = windowSize;
+        startMatchIndex = matchIndex;
         break;
       }
 
@@ -69,6 +72,7 @@ function compareReads(a, b) {
   windowSize = 1;
 
   let endWeight = 0;
+  let endMatchIndex = -1;
   while (true) {
     const query = a.slice(-windowSize);
     const matchIndex = b.indexOf(query);
@@ -76,10 +80,12 @@ function compareReads(a, b) {
     if (matchIndex > -1) {
       if (matchIndex + windowSize === b.length) {
         endWeight = windowSize;
+        endMatchIndex = matchIndex;
       }
 
       if (windowSize === b.length) {
         endWeight = windowSize;
+        endMatchIndex = matchIndex;
         break;
       }
 
@@ -89,7 +95,16 @@ function compareReads(a, b) {
     }
   }
 
-  return { start: startWeight, end: endWeight };
+  return {
+    start: {
+      weight: startWeight,
+      index: startMatchIndex,
+    },
+    end: {
+      weight: endWeight,
+      index: endMatchIndex,
+    }
+  };
 }
 
 function buildGraph(reads) {
@@ -98,7 +113,7 @@ function buildGraph(reads) {
   graph[0] = {
     id: 0,
     read: reads[0],
-    edges: [],
+    edges: {},
     visited: false,
   };
 
@@ -107,16 +122,16 @@ function buildGraph(reads) {
       graph[j] = {
         id: j,
         read: reads[j],
-        edges: [],
+        edges: {},
         visited: false,
         sorted: false,
       };
 
       const weight = compareReads(reads[i], reads[j]);
-      const edge = { node: j, weight };
+      const edge = weight;
 
-      graph[i].edges.push(edge);
-      graph[j].edges.push(edge);
+      graph[i].edges[j] = edge;
+      graph[j].edges[i] = edge;
     }
   }
 
@@ -143,17 +158,17 @@ function getTraverseOrder(graph) {
       break;
     }
 
-    const nextNode = graph[currentNode].edges.reduce((acc, edge) => {
-      const edgeWeight = Math.max(edge.weight.start, edge.weight.end);
+    const nextNode = Array.from(graph[currentNode].edges).reduce((acc, edge) => {
+      const edgeWeight = Math.max(edge.start.weight, edge.end.weight);
 
       if (!graph[edge.node].visited && (!acc || edgeWeight > acc.weight)) {
-        return { node: edge.node, weight: edgeWeight };
+        return { node: edge.node, weight: edgeWeight, edge };
       }
 
       return acc;
     }, { node: undefined });
 
-    currentNode = nextNode.acc;
+    currentNode = nextNode.node;
 
     if (!currentNode) {
       currentNode = Array.from(stack)[0];
@@ -167,13 +182,24 @@ function getTraverseOrder(graph) {
   return order;
 }
 
+function buildGenome(order) {
+  const genome = order[0].read;
+
+  for (let i = 1; i < order.length; i++) {
+    const curRead = order[i];
+
+    console.log(curRead.edges);
+  }
+
+  return genome;
+}
+
 function assembly(reads) {
   const graph = buildGraph(reads);
   const order = getTraverseOrder(graph);
+  const result = buildGenome(order);
 
-  console.log(order);
-
-  return '';
+  return result;
 }
 
 function test(outputType, onlyTest) {
