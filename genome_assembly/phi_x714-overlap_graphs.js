@@ -77,6 +77,8 @@ function compareReads(a, b) {
     const query = a.slice(-windowSize);
     const matchIndex = b.indexOf(query);
 
+    console.log(query, b, matchIndex);
+
     if (matchIndex > -1) {
       if (matchIndex + windowSize === b.length) {
         endWeight = windowSize;
@@ -129,6 +131,8 @@ function buildGraph(reads) {
 
       const weight = compareReads(reads[i], reads[j]);
       const edge = weight;
+
+      console.log(reads[i], reads[j], edge);
 
       graph[i].edges[j] = edge;
       graph[j].edges[i] = edge;
@@ -183,12 +187,15 @@ function getTraverseOrder(graph) {
 }
 
 function buildGenome(order) {
-  const genome = order[0].read;
+  let genome = '';
+  let curRead = order[0];
 
   for (let i = 1; i < order.length; i++) {
-    const curRead = order[i];
+    const nextRead = order[i];
+    const edgeToNext = curRead.edges[i];
 
-    console.log(curRead.edges);
+    console.log(1111, curRead.read, nextRead.read);
+    console.log(2222, edgeToNext);
   }
 
   return genome;
