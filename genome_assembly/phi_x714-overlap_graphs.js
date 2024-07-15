@@ -42,71 +42,35 @@ const readLines = () => {
   rl.once('line', readLine);
 };
 
-function compareReads(a, b) {
-  let windowSize = 1;
+function checkAComesBeforeB(a, b) {
+  let matchIndex = -1;
+  let bestMatchIndex = -1;
+  let windowSize = 0;
 
-  let startWeight = 0;
-  let startMatchIndex = -1;
   while (true) {
-    const query = a.slice(0, windowSize);
-    const matchIndex = b.indexOf(query);
+    windowSize++;
 
-    if (matchIndex > -1) {
-      if (matchIndex === 0) {
-        startWeight = windowSize;
-        startMatchIndex = matchIndex;
-      }
-
-      if (matchIndex + windowSize === b.length) {
-        startWeight = windowSize;
-        startMatchIndex = matchIndex;
-        break;
-      }
-
-      windowSize++;
-    } else {
-      break;
-    }
-  }
-
-  windowSize = 1;
-
-  let endWeight = 0;
-  let endMatchIndex = -1;
-  while (true) {
     const query = a.slice(-windowSize);
-    const matchIndex = b.indexOf(query);
-
-    console.log(query, b, matchIndex);
+    
+    matchIndex = b.indexOf(query);
 
     if (matchIndex > -1) {
-      if (matchIndex + windowSize === b.length) {
-        endWeight = windowSize;
-        endMatchIndex = matchIndex;
-      }
-
+      bestMatchIndex = matchIndex;
+      
       if (windowSize === b.length) {
-        endWeight = windowSize;
-        endMatchIndex = matchIndex;
         break;
       }
-
-      windowSize++;
     } else {
+      windowSize--;
       break;
     }
   }
 
-  return {
-    start: {
-      weight: startWeight,
-      index: startMatchIndex,
-    },
-    end: {
-      weight: endWeight,
-      index: endMatchIndex,
-    }
-  };
+  if (bestMatchIndex !== 0) {
+    return 0;
+  }
+
+  return windowSize;
 }
 
 function buildGraph(reads) {
@@ -119,23 +83,20 @@ function buildGraph(reads) {
     visited: false,
   };
 
-  for (let i = 0; i < reads.length - 1; i++) {
+  for (let i = 0; i < reads.length; i++) {
     for (let j = i + 1; j < reads.length; j++) {
-      graph[j] = {
-        id: j,
-        read: reads[j],
-        edges: {},
-        visited: false,
-        sorted: false,
-      };
+      if (!graph[j]) {
+        graph[j] = {
+          id: j,
+          read: reads[j],
+          edges: {},
+          visited: false,
+          sorted: false,
+        };  
+      }
 
-      const weight = compareReads(reads[i], reads[j]);
-      const edge = weight;
-
-      console.log(reads[i], reads[j], edge);
-
-      graph[i].edges[j] = edge;
-      graph[j].edges[i] = edge;
+      graph[i].edges[j] = checkAComesBeforeB(reads[i], reads[j]);
+      graph[j].edges[i] = checkAComesBeforeB(reads[j], reads[i]);
     }
   }
 
@@ -145,37 +106,61 @@ function buildGraph(reads) {
 function getTraverseOrder(graph) {
   const stack = new Set();
   const order = [];
+  let startingNode = '0';
 
   for (let key in graph) {
     stack.add(key);
   }
 
-  let currentNode = 0;
+  let currentNode = startingNode;
+  let previousNode = undefined;
 
   while (true) {
-    graph[currentNode].visited = true;
-    order.push(graph[currentNode]);
-
-    stack.delete(currentNode.toString());
-
     if (stack.size === 0) {
       break;
     }
 
-    const nextNode = Array.from(graph[currentNode].edges).reduce((acc, edge) => {
-      const edgeWeight = Math.max(edge.start.weight, edge.end.weight);
+    let nextNode = undefined;
 
-      if (!graph[edge.node].visited && (!acc || edgeWeight > acc.weight)) {
-        return { node: edge.node, weight: edgeWeight, edge };
+    for (let v in graph[currentNode].edges) {
+      const weight = graph[currentNode].edges[v];
+
+      if (
+        (
+          !graph[v].visited
+          || (!graph[currentNode].visited && v === startingNode)
+        )
+        && weight > 0
+        && (!nextNode || weight > nextNode.weight)
+      ) {
+        nextNode = { node: v, weight: weight };
+      }
+    }
+
+    if (nextNode === undefined) {
+      if (!graph[currentNode].visited) {
+        order.push(graph[currentNode]);
+        graph[currentNode].visited = true;
+        stack.delete(currentNode.toString());
       }
 
-      return acc;
-    }, { node: undefined });
-
-    currentNode = nextNode.node;
-
-    if (!currentNode) {
       currentNode = Array.from(stack)[0];
+    } else if (nextNode.node === startingNode) {
+      order.unshift(graph[currentNode]);
+      graph[currentNode].visited = true;
+      stack.delete(currentNode.toString());
+      startingNode = currentNode;
+      currentNode = previousNode;
+      previousNode = undefined;
+    } else {
+      if (!graph[currentNode].visited) {
+        order.push(graph[currentNode]);
+        graph[currentNode].visited = true;
+        stack.delete(currentNode.toString());
+      }
+
+      previousNode = currentNode;
+      currentNode = nextNode.node;
     }
 
     if (!currentNode) {
@@ -187,15 +172,16 @@ function getTraverseOrder(graph) {
 }
 
 function buildGenome(order) {
-  let genome = '';
   let curRead = order[0];
+  let genome = curRead.read;
 
   for (let i = 1; i < order.length; i++) {
     const nextRead = order[i];
-    const edgeToNext = curRead.edges[i];
+    const weight = curRead.edges[nextRead.id];
 
-    console.log(1111, curRead.read, nextRead.read);
-    console.log(2222, edgeToNext);
+    genome += nextRead.read.slice(weight);
+
+    curRead = nextRead;
   }
 
   return genome;
