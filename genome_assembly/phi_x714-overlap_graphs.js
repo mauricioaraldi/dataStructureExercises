@@ -75,38 +75,53 @@ function checkAComesBeforeB(a, b) {
 
 function buildGraph(reads) {
   const graph = {};
+  let highestWeightNode = '0';
 
   graph[0] = {
-    id: 0,
+    id: '0',
     read: reads[0],
     edges: {},
     visited: false,
+    totalWeight: 0,
   };
 
   for (let i = 0; i < reads.length; i++) {
     for (let j = i + 1; j < reads.length; j++) {
       if (!graph[j]) {
         graph[j] = {
-          id: j,
+          id: j.toString(),
           read: reads[j],
           edges: {},
           visited: false,
-          sorted: false,
-        };  
+          totalWeight: 0,
+        };
       }
 
       graph[i].edges[j] = checkAComesBeforeB(reads[i], reads[j]);
       graph[j].edges[i] = checkAComesBeforeB(reads[j], reads[i]);
+
+      graph[i].totalWeight += graph[i].edges[j];
+      graph[j].totalWeight += graph[j].edges[i];
+
+      if (graph[i].totalWeight > graph[highestWeightNode].totalWeight) {
+        highestWeightNode = i.toString();
+      }
+
+      if (graph[j].totalWeight > graph[highestWeightNode].totalWeight) {
+        highestWeightNode = j.toString();
+      }
     }
   }
 
-  return graph;
+  return {
+    graph,
+    highestWeightNode,
+  };
 }
 
-function getTraverseOrder(graph) {
+function getTraverseOrder(graph, startingNode) {
   const stack = new Set();
   const order = [];
-  let startingNode = '0';
 
   for (let key in graph) {
     stack.add(key);
@@ -126,10 +141,7 @@ function getTraverseOrder(graph) {
       const weight = graph[currentNode].edges[v];
 
       if (
-        (
-          !graph[v].visited
-          || (!graph[currentNode].visited && v === startingNode)
-        )
+        !graph[v].visited 
         && weight > 0
         && (!nextNode || weight > nextNode.weight)
       ) {
@@ -145,13 +157,6 @@ function getTraverseOrder(graph) {
       }
 
       currentNode = Array.from(stack)[0];
-    } else if (nextNode.node === startingNode) {
-      order.unshift(graph[currentNode]);
-      graph[currentNode].visited = true;
-      stack.delete(currentNode.toString());
-      startingNode = currentNode;
-      currentNode = previousNode;
-      previousNode = undefined;
     } else {
       if (!graph[currentNode].visited) {
         order.push(graph[currentNode]);
@@ -184,12 +189,20 @@ function buildGenome(order) {
     curRead = nextRead;
   }
 
+  const lastToFirstWeight = order[order.length - 1].edges[order[0].id];
+
+  if (lastToFirstWeight > 0) {
+    genome = genome.slice(0, genome.length - lastToFirstWeight);
+  }
+
   return genome;
 }
 
 function assembly(reads) {
-  const graph = buildGraph(reads);
-  const order = getTraverseOrder(graph);
+  const { graph, highestWeightNode } = buildGraph(reads);
+  console.log(graph, highestWeightNode);
+  const order = getTraverseOrder(graph, highestWeightNode);
+  console.log(order);
   const result = buildGenome(order);
 
   return result;
@@ -209,6 +222,20 @@ function test(outputType, onlyTest) {
         ]
       ),
       expected: 'ACGTTCGA',
+    },
+    {
+      id: 2,
+      run: () => assembly(
+        [
+          'TAAC',
+          'ACGG',
+          'GTTT',
+          'TTAG',
+          'GTAC',
+          'CGAT',
+        ]
+      ),
+      expected: 'TAACGGTTTAGTACGAT',
     },
   ];
 
