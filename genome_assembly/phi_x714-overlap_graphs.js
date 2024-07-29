@@ -76,6 +76,7 @@ function checkAComesBeforeB(a, b) {
 function buildGraph(reads) {
   const graph = {};
   let highestWeightNode = '0';
+  let lowestWeightNode = '0';
 
   graph[0] = {
     id: '0',
@@ -110,12 +111,21 @@ function buildGraph(reads) {
       if (graph[j].totalWeight > graph[highestWeightNode].totalWeight) {
         highestWeightNode = j.toString();
       }
+
+      if (graph[i].totalWeight < graph[highestWeightNode].totalWeight) {
+        lowestWeightNode = i.toString();
+      }
+
+      if (graph[j].totalWeight < graph[highestWeightNode].totalWeight) {
+        lowestWeightNode = j.toString();
+      }
     }
   }
 
   return {
     graph,
     highestWeightNode,
+    lowestWeightNode,
   };
 }
 
@@ -199,10 +209,8 @@ function buildGenome(order) {
 }
 
 function assembly(reads) {
-  const { graph, highestWeightNode } = buildGraph(reads);
-  console.log(graph, highestWeightNode);
-  const order = getTraverseOrder(graph, highestWeightNode);
-  console.log(order);
+  const { graph, highestWeightNode, lowestWeightNode } = buildGraph(reads);
+  const order = getTraverseOrder(graph, lowestWeightNode);
   const result = buildGenome(order);
 
   return result;
@@ -224,6 +232,10 @@ function test(outputType, onlyTest) {
       expected: 'ACGTTCGA',
     },
     {
+      /*
+       * Unresolved problem: How to know if the last letter
+       * and the first letter should overlap?
+       */
       id: 2,
       run: () => assembly(
         [
@@ -236,6 +248,39 @@ function test(outputType, onlyTest) {
         ]
       ),
       expected: 'TAACGGTTTAGTACGAT',
+    },
+    {
+      /*
+       * Both highest and lowest weights return
+       * results different from example
+       *
+       * Is it really correct?
+       */
+      id: 3,
+      run: () => assembly(
+        [
+          'TAA',
+          'AAT',
+          'ATG',
+          'TGC',
+          'GCC',
+          'CCA',
+          'CAT',
+          'ATG',
+          'TGG',
+          'GGG',
+          'GGA',
+          'GAT',
+          'ATG',
+          'TGT',
+          'GTT',
+        ]
+      ),
+      expected: 'TAATGCCATGGGATGTT',
+      // ATGCCATAATGGGATGTT -- Using highestWeight
+      // GTTAATGCCATGGGAT -- Using lowestWeight
+      // TAATGGGATGCCATGTT -- Expect 1
+      // TAATGCCATGGGATGTT -- Expect 2
     },
   ];
 
