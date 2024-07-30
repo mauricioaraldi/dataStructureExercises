@@ -53,8 +53,224 @@ const readLines = () => {
   rl.once('line', readLine);
 };
 
-function assembly(pieces) {
-  console.log(pieces);
+function createPiecesAndColors(piecesString) {
+  const colors = {
+    black: 'black',
+  };
+  const pieces = {
+    all: {},
+    center: {},
+    down: {},
+    left: {},
+    right: {},
+    up: {},
+  };
+
+  piecesString.forEach((pieceString, index) => {
+    const pieceArray = pieceString.replace('(', '').replace(')', '').split(',');
+    const piece = {
+      id: index,
+      down: pieceArray[2],
+      left: pieceArray[1],
+      right: pieceArray[3],
+      up: pieceArray[0],
+      forbiddenPos: [],
+    };
+
+    pieceArray.forEach(color => colors[color] = color);
+
+    if (piece.up === colors.black) {
+      pieces.up[piece.id] = piece;
+    } else if (piece.down === colors.black) {
+      pieces.down[piece.id] = piece;
+    } else if (piece.left === colors.black) {
+      pieces.left[piece.id] = piece;
+    } else if (piece.right === colors.black) {
+      pieces.right[piece.id] = piece;
+    } else {
+      pieces.center[piece.id] = piece;
+    }
+
+    pieces.all[piece.id] = piece;
+  });
+
+  return { pieces, colors };
+}
+
+function createBoard(size) {
+  const board = [];
+
+  for (let i = 0; i < size; i++) {
+    board.push([]);
+
+    for (let j = 0; j < size; j++) {
+      board[i].push([]);
+    }
+  }
+
+  return board;
+}
+
+function isPlacementAllowed(line, column, piece) {
+  for (let i = 0; i < piece.forbiddenPos.length; i++) {
+    if (piece.forbiddenPos[i][0] === line
+        && piece.forbiddenPos[i][1] === column) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function placeBorders(board, pieces, colors) {
+  const LAST_POS = board.length - 1;
+  let idsPiecesLeft = [];
+  let curEmptySpace = 0;
+  let currentPieceIndex = 0;
+
+  // UP
+  for (let id in pieces.up) {
+    if (pieces.up[id].left === colors.black) {
+      board[0][0] = id;
+    } else if (pieces.up[id].right === colors.black) {
+      board[0][LAST_POS] = id;
+    } else {
+      idsPiecesLeft.push(id);
+    }
+  }
+
+  curEmptySpace = 1;
+  currentPieceIndex = 0;
+  while (idsPiecesLeft.length) {
+    const curPiece = pieces.up[idsPiecesLeft[currentPieceIndex]];
+    const prevPiece = pieces.up[board[0][curEmptySpace - 1]];
+
+    if (!curPiece) {
+      throw new Error('Piece not found for UP');
+      break;
+    }
+
+    if (curPiece.left === prevPiece.right && isPlacementAllowed(0, curEmptySpace, curPiece)) {
+      board[0][curEmptySpace] = curPiece.id.toString();
+      idsPiecesLeft.pop();
+      currentPieceIndex = 0;
+      curEmptySpace++;
+    } else {
+      currentPieceIndex++;
+    }
+  }
+  // END UP
+
+  // DOWN
+  idsPiecesLeft = [];
+
+  for (let id in pieces.down) {
+    if (pieces.down[id].left === colors.black) {
+      board[LAST_POS][0] = id;
+    } else if (pieces.down[id].right === colors.black) {
+      board[LAST_POS][LAST_POS] = id;
+    } else {
+      idsPiecesLeft.push(id);
+    }
+  }
+
+  curEmptySpace = 1;
+  currentPieceIndex = 0;
+  while (idsPiecesLeft.length) {
+    const curPiece = pieces.down[idsPiecesLeft[currentPieceIndex]];
+    const prevPiece = pieces.down[board[LAST_POS][curEmptySpace - 1]];
+
+    if (!curPiece) {
+      throw new Error('Piece not found for DOWN');
+      break;
+    }
+
+    if (curPiece.left === prevPiece.right && isPlacementAllowed(LAST_POS, curEmptySpace, curPiece)) {
+      board[LAST_POS][curEmptySpace] = curPiece.id.toString();
+      idsPiecesLeft.pop();
+      currentPieceIndex = 0;
+      curEmptySpace++;
+    } else {
+      currentPieceIndex++;
+    }
+  }
+  // END DOWN
+
+  // LEFT
+  idsPiecesLeft = [];
+
+  for (let id in pieces.left) {
+    idsPiecesLeft.push(id);
+  }
+
+  curEmptySpace = 1;
+  currentPieceIndex = 0;
+  while (idsPiecesLeft.length) {
+    const curPiece = pieces.left[idsPiecesLeft[currentPieceIndex]];
+    const prevPiece = pieces.all[board[curEmptySpace - 1][0]];
+
+    if (!curPiece) {
+      throw new Error('Piece not found for LEFT');
+      break;
+    }
+
+    if (curPiece.up === prevPiece.down && isPlacementAllowed(curEmptySpace, 0, curPiece)) {
+      board[curEmptySpace][0] = curPiece.id.toString();
+      idsPiecesLeft.pop();
+      currentPieceIndex = 0;
+      curEmptySpace++;
+    } else {
+      currentPieceIndex++;
+    }
+  }
+  // END LEFT
+
+  // RIGHT
+  idsPiecesLeft = [];
+
+  for (let id in pieces.right) {
+    idsPiecesLeft.push(id);
+  }
+
+  curEmptySpace = 1;
+  currentPieceIndex = 0;
+  while (idsPiecesLeft.length) {
+    const curPiece = pieces.right[idsPiecesLeft[currentPieceIndex]];
+    const prevPiece = pieces.all[board[curEmptySpace - 1][LAST_POS]];
+
+    if (!curPiece) {
+      throw new Error('Piece not found for RIGHT');
+      break;
+    }
+
+    if (curPiece.up === prevPiece.down && isPlacementAllowed(curEmptySpace, LAST_POS, curPiece)) {
+      board[curEmptySpace][LAST_POS] = curPiece.id.toString();
+      idsPiecesLeft.pop();
+      currentPieceIndex = 0;
+      curEmptySpace++;
+    } else {
+      currentPieceIndex++;
+    }
+  }
+  // END RIGHT
+
+  return board;
+}
+
+function placeCenter(board, pieces, colors) {
+  
+}
+
+function assembly(piecesString) {
+  const { colors, pieces } = createPiecesAndColors(piecesString);
+  const board = createBoard(Math.sqrt(piecesString.length));
+
+  placeBorders(board, pieces, colors);
+
+  placeCenter(board, pieces, colors);
+
+  console.log(board);
+
   return [];
 }
 
