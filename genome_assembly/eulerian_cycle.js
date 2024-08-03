@@ -55,10 +55,18 @@ const readLines = () => {
 
 function buildGraph(connections) {
   const graph = {};
+  const allEdges = {};
+  let curEdgeId = 0;
 
   connections.forEach(([originInt, destinyInt]) => {
     const origin = originInt.toString();
     const destiny = destinyInt.toString();
+
+    allEdges[curEdgeId] = {
+      destiny: destinyInt,
+      id: curEdgeId,
+      origin: originInt,
+    };
 
     if (!graph[origin]) {
       graph[origin] = {
@@ -76,22 +84,138 @@ function buildGraph(connections) {
       };
     }
 
-    graph[origin].edges.add(destiny);
-    graph[destiny].reverseEdges.add(origin);
+    graph[origin].edges.push(curEdgeId);
+    graph[destiny].reverseEdges.push(curEdgeId);
+
+    curEdgeId++;
   });
 
-  return graph;
+  return {
+    allEdges,
+    graph,
+  }
 }
 
 function countEvenOdd(graph) {
-  
+  const oddVertices = [];
+  const evenVertices = [];
+
+  for (let key in graph) {
+    const vertex = graph[key];
+    const totalEdges = vertex.edges.size + vertex.reverseEdges.size;
+
+    if (totalEdges % 2 === 0) {
+      evenVertices.push(key);
+    } else {
+      oddVertices.push(key);
+    }
+  }
+
+  return {
+    evenVertices,
+    oddVertices,
+  };
+}
+
+function dfs(graph, allEdges, startingPoint) {
+  const stack = [startingPoint];
+  const edgesOrder = [];
+  const verticesOrder = [];
+
+  while(stack.length) {
+    const vertexId = stack.pop();
+    const vertex = graph[vertexId];
+
+    if (vertex.visited) {
+      continue;
+    }
+
+    vertex.visited = true;
+    verticesOrder.push(vertexId);
+
+    if (vertex.edges.size) {
+      Array.from(vertex.edges).forEach(edgeId => {
+        const edge = allEdges[edgeId];
+
+        if (!graph[edge.destiny].visited) {
+          edgesOrder.push(edge.id);
+          stack.push(edge.destiny);
+        }
+      });
+    }
+  }
+
+  return {
+    edgesOrder,
+    verticesOrder,
+  };
+}
+
+function explore(graph, allEdges, startVertex) {
+  const path = [];
+  const idsEdgesLeft = new Set();
+  let curVertexId = startVertex;
+
+  for (let key in allEdges) {
+    idsEdgesLeft.add(key);
+  }
+
+  while (idsEdgesLeft.size) {
+    path.push(curVertexId);
+
+    const {edgesOrder, verticesOrder} = dfs(graph, allEdges, curVertexId);
+
+    console.log(edgesOrder);
+
+    const curVertexEdges = graph[curVertexId].edges;
+    let edgeToDelete = null;
+
+    if (curVertexEdges.size === 1) {
+      idEdgeToDelete = curVertexEdges[0];
+    } else {
+      idEdgeToDelete = curVertexEdges.filter(edge => edgesOrder.indexOf(edge.id) === -1)[0];
+    }
+
+    if (curVertexId === allEdges[idEdgeToDelete].origin) {
+      curVertexId = allEdges[idEdgeToDelete].destiny;
+    } else {
+      curVertexId = allEdges[idEdgeToDelete].origin;
+    }
+
+    idsEdgesLeft.remove(idEdgeToDelete);
+
+    if (idsEdgesLeft.size === 0) {
+      path.push(curVertexId);
+    }
+
+    graph[allEdges[idEdgeToDelete].origin].edges.remove(idEdgeToDelete);
+  }
+
+  return path;
 }
 
 function eulerianCycle(verticesQt, connections) {
-  const graph = buildGraph(connections);
-  const [evenVertices, oddVertices] = countEvenOdd(graph);
+  const {allEdges, graph} = buildGraph(connections);
+  const {evenVertices, oddVertices} = countEvenOdd(graph);
+  const isCircuit = !oddVertices.length.length;
 
-  return 0;
+  if (!isCircuit && oddRankVertices.length !== 2) {
+    throw new Error('A path needs to contain two odd vertices');
+  }
+
+  let startVertex = null;
+
+  if (isCircuit) {
+    // If circuit, start vertex doesn't matter
+    startVertex = evenVertices[0];
+  } else {
+    // If path, start in one of the two odd vertices
+    startVertex = oddVertices[0];
+  }
+
+  const eulerianPath = explore(graph, allEdges, startVertex);
+
+  return eulerianPath;
 }
 
 function test(outputType, onlyTest) {
