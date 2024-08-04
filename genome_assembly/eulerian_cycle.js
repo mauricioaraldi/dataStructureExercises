@@ -169,16 +169,24 @@ function explore(graph, allEdges, startVertex) {
   while (idsEdgesLeft.size) {
     path.push(curVertexId);
 
-    const {edgesOrder, verticesOrder} = dfs(graph, allEdges, curVertexId);
+    console.log({curVertexId});
+
+    const {edgesOrder} = dfs(graph, allEdges, curVertexId);
+
+    console.log({edgesOrder});
 
     const curVertexEdges = graph[curVertexId].edges;
     let edgeToDelete = null;
+
+    console.log({curVertexEdges});
 
     if (curVertexEdges.size === 1) {
       idEdgeToDelete = curVertexEdges.values().next().value;
     } else {
       idEdgeToDelete = Array.from(curVertexEdges).find(edgeId => edgesOrder.indexOf(edgeId) === -1);
     }
+
+    console.log({idEdgeToDelete});
 
     if (curVertexId === allEdges[idEdgeToDelete].origin) {
       curVertexId = allEdges[idEdgeToDelete].destiny;
@@ -203,6 +211,8 @@ function eulerianCycle(verticesQt, connections) {
   const {allEdges, graph} = buildGraph(connections);
   const {evenVertices, oddVertices, unbalancedVertices} = countEvenOdd(graph);
   const isCircuit = !oddVertices.length.length;
+
+  console.log(graph);
 
   if (unbalancedVertices.length) {
     return '0';
