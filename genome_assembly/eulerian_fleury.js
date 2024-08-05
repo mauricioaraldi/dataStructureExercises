@@ -122,30 +122,38 @@ function countEvenOdd(graph) {
   };
 }
 
-function dfs(graph, allEdges, startingPoint) {
-  const stack = [startingPoint];
+function dfs(graph, allEdges, usedEdges, startingPoint) {
+  const stack = [{destiny: startingPoint, id: null}];
   const edgesOrder = [];
   const verticesOrder = [];
-  const visited = new Set();
+  const verticesVisited = new Set();
 
   while(stack.length) {
-    const vertexId = stack.pop();
-    const vertex = graph[vertexId];
+    const edge = stack.pop();
+    const vertex = graph[edge.destiny];
 
-    if (vertex.visited) {
+    if (verticesVisited.has(edge.destiny)) {
       continue;
     }
 
-    visited.add(vertexId);
-    verticesOrder.push(vertexId);
+    verticesVisited.add(edge.destiny);
+    verticesOrder.push(edge.destiny);
 
-    if (vertex.edges.size) {
-      Array.from(vertex.edges).forEach(edgeId => {
-        const edge = allEdges[edgeId];
+    if (edge.id !== null) {
+      edgesOrder.push(edge.id);
+    }
 
-        if (!visited.has(edge.destiny)) {
-          edgesOrder.push(edge.id);
-          stack.push(edge.destiny);
+    const vertexEdges = Array.from(vertex.edges).filter(e => !usedEdges.has(e));
+
+    if (vertexEdges.length) {
+      vertexEdges.forEach(edgeId => {
+        const vertexEdge = allEdges[edgeId];
+
+        if (
+          !verticesVisited.has(vertexEdge.destiny)
+          && !usedEdges.has(vertexEdge.id)
+        ) {
+          stack.push(vertexEdge);
         }
       });
     }
@@ -160,6 +168,7 @@ function dfs(graph, allEdges, startingPoint) {
 function explore(graph, allEdges, startVertex) {
   const path = [];
   const idsEdgesLeft = new Set();
+  const usedEdges = new Set();
   let curVertexId = startVertex;
 
   for (let key in allEdges) {
@@ -171,37 +180,40 @@ function explore(graph, allEdges, startVertex) {
 
     console.log({curVertexId});
 
-    const {edgesOrder} = dfs(graph, allEdges, curVertexId);
+    const {edgesOrder} = dfs(graph, allEdges, usedEdges, curVertexId);
 
     console.log({edgesOrder});
 
-    const curVertexEdges = graph[curVertexId].edges;
-    let edgeToDelete = null;
+    const curVertexEdges = Array.from(graph[curVertexId].edges).filter(e => !usedEdges.has(e));
+    let idEdgeToUse = null;
 
     console.log({curVertexEdges});
 
-    if (curVertexEdges.size === 1) {
-      idEdgeToDelete = curVertexEdges.values().next().value;
+    if (curVertexEdges.length === 1) {
+      idEdgeToUse = curVertexEdges[0];
     } else {
-      idEdgeToDelete = Array.from(curVertexEdges).find(edgeId => edgesOrder.indexOf(edgeId) === -1);
+      idEdgeToUse = curVertexEdges.find(edgeId => edgesOrder.indexOf(edgeId) === -1);
     }
 
-    console.log({idEdgeToDelete});
-
-    if (curVertexId === allEdges[idEdgeToDelete].origin) {
-      curVertexId = allEdges[idEdgeToDelete].destiny;
-    } else {
-      curVertexId = allEdges[idEdgeToDelete].origin;
-    }
-
-    idsEdgesLeft.delete(idEdgeToDelete);
-
-    //This links again to the beginning of the cycle (starting vertex)
-    // if (idsEdgesLeft.size === 0) {
-      // path.push(curVertexId);
+    // if (!idEdgeToUse) {
+    //   console.log('WILL START AGAIN -->', curVertexId);
+    //   return explore(graph, allEdges, curVertexId);
     // }
 
-    graph[allEdges[idEdgeToDelete].origin].edges.delete(idEdgeToDelete);
+    if (curVertexId === allEdges[idEdgeToUse].origin) {
+      curVertexId = allEdges[idEdgeToUse].destiny;
+    } else {
+      curVertexId = allEdges[idEdgeToUse].origin;
+    }
+
+    idsEdgesLeft.delete(idEdgeToUse);
+
+    // This links again to the beginning of the cycle (starting vertex)
+    // if (idsEdgesLeft.size === 0) {
+    //   path.push(curVertexId);
+    // }
+
+    usedEdges.add(idEdgeToUse);
   }
 
   return path;
@@ -210,9 +222,10 @@ function explore(graph, allEdges, startVertex) {
 function eulerianCycle(verticesQt, connections) {
   const {allEdges, graph} = buildGraph(connections);
   const {evenVertices, oddVertices, unbalancedVertices} = countEvenOdd(graph);
-  const isCircuit = !oddVertices.length.length;
+  const isCircuit = !oddVertices.length;
 
   console.log(graph);
+  console.log('allEdges', allEdges);
 
   if (unbalancedVertices.length) {
     return '0';
@@ -226,7 +239,7 @@ function eulerianCycle(verticesQt, connections) {
 
   if (isCircuit) {
     // If circuit, start vertex doesn't matter
-    startVertex = evenVertices[0];
+    startVertex = '1';
   } else {
     // If path, start in one of the two odd vertices
     startVertex = oddVertices[0];
