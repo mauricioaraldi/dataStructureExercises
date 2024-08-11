@@ -89,7 +89,6 @@ function buildGraph(connections) {
     };
 
     connectionsEdges.push(curEdgeIdString);
-    connectionsEdges.push(curReverseEdgeIdString);
 
     if (!graph[origin]) {
       graph[origin] = {
@@ -174,6 +173,8 @@ function maxFlow(graph, allEdges, source, sink) {
     while (currentNodeId !== source) {
       const { edge } = parent[currentNodeId];
 
+      console.log(11111, edge, pathFlow);
+
       edge.capacity -= pathFlow;
       allEdges[edge.reverse].capacity += pathFlow;
 
@@ -203,7 +204,7 @@ function updateCapacities(allEdges) {
 }
 
 function addSourceSink(graph, allEdges, verticesQt) {
-  const sinkId = verticesQt + 1;
+  const sinkId = (verticesQt + 1).toString();
   const sourceVertex = {
     edges: new Set(),
     reverseEdges: new Set(),
@@ -260,7 +261,7 @@ function addSourceSink(graph, allEdges, verticesQt) {
       const curReverseEdgeIdString = CUR_EDGE_ID.toString();
 
       allEdges[curEdgeIdString] = {
-        capacity: vertex.demand,
+        capacity: vertex.demand * -1,
         destiny: sinkId,
         id: curEdgeIdString,
         origin: vertexId,
@@ -269,7 +270,7 @@ function addSourceSink(graph, allEdges, verticesQt) {
       };
 
       allEdges[curReverseEdgeIdString] = {
-        capacity: vertex.demand,
+        capacity: 0,
         destiny: vertexId,
         id: curEdgeIdString,
         origin: sinkId,
@@ -280,8 +281,8 @@ function addSourceSink(graph, allEdges, verticesQt) {
       vertex.edges.add(curEdgeIdString);
       sinkVertex.reverseEdges.add(curEdgeIdString);
 
-      vertex.reverseEdges.add(curReverseEdgeIdString);
       sinkVertex.edges.add(curReverseEdgeIdString);
+      vertex.reverseEdges.add(curReverseEdgeIdString);
 
       CUR_EDGE_ID++;
     }
@@ -302,9 +303,9 @@ function circulationNetwork(verticesQt, connections) {
 
   const sinkId = addSourceSink(graph, allEdges, verticesQt);
 
-  console.log(graph, allEdges);
+  maxFlow(graph, allEdges, '0', sinkId);
 
-  return maxFlow(graph, allEdges, '0', sinkId);
+  console.log(graph, allEdges);
 }
 
 function test(onlyTest) {

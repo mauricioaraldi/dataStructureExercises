@@ -249,7 +249,7 @@ function findShortestPath(graph, sinkId) {
       return acc;
     }, undefined);
 
-    currentNode = nextNodeInfo?.node;
+    currentNode = nextNodeInfo ? nextNodeInfo.node : null;
 
     console.log('currentNode', currentNode, graph[currentNode]);
 
