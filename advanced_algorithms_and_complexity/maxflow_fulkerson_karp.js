@@ -127,6 +127,8 @@ class FordFulkerson {
       }
     }
 
+    console.log(parent);
+
     return maxFlow;
   }
 }
@@ -144,7 +146,11 @@ function buildGraph(connections) {
 function evacuation(verticesQt, connections) {
   const graph = buildGraph(connections);
 
-  return graph.maxFlow(1, verticesQt);
+  const r = graph.maxFlow(1, verticesQt);
+
+  console.log(graph.graph);
+
+  return r;
 }
 
 function test(onlyTest) {
@@ -664,6 +670,21 @@ function test(onlyTest) {
         ]
       ),
       expected: 57336,
+    },
+
+    {
+      id: 9,
+      run: () => evacuation(
+        5,
+        [
+          [1, 2, 1],
+          [2, 3, 1],
+          [3, 4, 2],
+          [4, 2, 2],
+          [4, 5, 1],
+        ]
+      ),
+      expected: 1,
     },
   ];
 

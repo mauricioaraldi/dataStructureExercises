@@ -133,8 +133,9 @@ function bfs(graph, allEdges, source, sink, order) {
 
   while (queue.length > 0) {
     const u = queue.shift();
+    const edges = Array.from(graph[u].edges);
 
-    for (const edgeId of Array.from(graph[u].edges)) {
+    for (const edgeId of edges) {
       const edge = allEdges[edgeId];
       const {capacity, destiny} = edge;
 
@@ -155,37 +156,34 @@ function bfs(graph, allEdges, source, sink, order) {
 
 function maxFlow(graph, allEdges, source, sink) {
   const order = {};
-  let maxFlow = 0;
+  let flow = 0;
 
   while (bfs(graph, allEdges, source, sink, order)) {
     let pathFlow = Number.POSITIVE_INFINITY;
     let currentNodeId = sink;
 
     while (currentNodeId !== source) {
-      const { edge } = order[currentNodeId];
+      const { node: orderNode, edge } = order[currentNodeId];
 
       pathFlow = Math.min(pathFlow, edge.capacity);
-      currentNodeId = order[currentNodeId].node;
+      currentNodeId = orderNode;
     }
 
-    maxFlow += pathFlow;
+    flow += pathFlow;
 
     currentNodeId = sink;
 
     while (currentNodeId !== source) {
-      const { edge } = order[currentNodeId];
+      const { node: orderNode, edge } = order[currentNodeId];
 
       edge.capacity -= pathFlow;
       allEdges[edge.reverse].capacity += pathFlow;
 
-      currentNodeId = order[currentNodeId].node;
+      currentNodeId = orderNode;
     }
   }
 
-  return {
-    maxFlow,
-    order,
-  };
+  return flow;
 }
 
 function checkDependencies(graph, allEdges) {
@@ -305,26 +303,21 @@ function getResult(allEdges, connectionsEdges) {
   return connectionsEdges.map(connectionEdge => {
     const originalEdge = allEdges[connectionEdge];
     const reverseEdge = allEdges[originalEdge.reverse];
-    const flow = originalEdge.lowerBound + reverseEdge.capacity;
+    const flow = reverseEdge.capacity + originalEdge.lowerBound;
 
     return flow;
   });
 }
 
 function hasCirculation(graph, allEdges, sinkId, maxFlow) {
-  const sinkDemand = Array.from(graph[sinkId].reverseEdges).reduce((acc, edgeId) => {
+  const totalSupply = Array.from(graph['0'].edges).reduce((acc, edgeId) => {
     const edge = allEdges[edgeId];
-    const edgeReverse = allEdges[edge.reverse];
-    const vertex = graph[edgeReverse.origin];
-
-    console.log(vertex);
+    const vertex = graph[edge.destiny];
 
     return acc + vertex.demand;
   }, 0);
 
-  console.log('SINKDEMAND', sinkDemand, maxFlow);
-
-  return sinkDemand === maxFlow;
+  return totalSupply === maxFlow;
 }
 
 function circulationNetwork(verticesQt, connections) {
@@ -335,9 +328,9 @@ function circulationNetwork(verticesQt, connections) {
   updateCapacities(allEdges);
 
   const sinkId = addSourceSink(graph, allEdges, verticesQt);
-  const { maxFlow: networkFlow, order } = maxFlow(graph, allEdges, '0', sinkId);
+  const flow = maxFlow(graph, allEdges, '0', sinkId);
 
-  if (!hasCirculation(graph, allEdges, sinkId, networkFlow)) {
+  if (!hasCirculation(graph, allEdges, sinkId, flow)) {
     return 'NO';
   }
 
