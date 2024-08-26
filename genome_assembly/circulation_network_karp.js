@@ -74,6 +74,7 @@ function buildGraph(connections) {
       lowerBound,
       origin,
       id: curEdgeIdString,
+      originalCapacity: capacity,
       reverse: curReverseEdgeIdString,
       used: false,
     };
@@ -84,6 +85,7 @@ function buildGraph(connections) {
       id: curReverseEdgeIdString,
       lowerBound: 0,
       origin: destiny,
+      originalCapacity: 0,
       reverse: curEdgeIdString,
       used: false,
     };
@@ -123,7 +125,7 @@ function buildGraph(connections) {
   }
 }
 
-function bfs(graph, allEdges, source, sink, parent) {
+function bfs(graph, allEdges, source, sink, order) {
   const visited = new Set();
   const queue = [source];
 
@@ -137,7 +139,7 @@ function bfs(graph, allEdges, source, sink, parent) {
       const {capacity, destiny} = edge;
 
       if (!visited.has(destiny) && capacity > 0) {
-        parent[destiny] = { node: u, edge: edge };
+        order[destiny] = { node: u, edge };
         visited.add(destiny);
         queue.push(destiny);
 
@@ -152,18 +154,18 @@ function bfs(graph, allEdges, source, sink, parent) {
 }
 
 function maxFlow(graph, allEdges, source, sink) {
-  const parent = {};
+  const order = {};
   let maxFlow = 0;
 
-  while (bfs(graph, allEdges, source, sink, parent)) {
+  while (bfs(graph, allEdges, source, sink, order)) {
     let pathFlow = Number.POSITIVE_INFINITY;
     let currentNodeId = sink;
 
     while (currentNodeId !== source) {
-      const { edge } = parent[currentNodeId];
+      const { edge } = order[currentNodeId];
 
       pathFlow = Math.min(pathFlow, edge.capacity);
-      currentNodeId = parent[currentNodeId].node;
+      currentNodeId = order[currentNodeId].node;
     }
 
     maxFlow += pathFlow;
@@ -171,18 +173,19 @@ function maxFlow(graph, allEdges, source, sink) {
     currentNodeId = sink;
 
     while (currentNodeId !== source) {
-      const { edge } = parent[currentNodeId];
-
-      console.log(11111, edge, pathFlow);
+      const { edge } = order[currentNodeId];
 
       edge.capacity -= pathFlow;
       allEdges[edge.reverse].capacity += pathFlow;
 
-      currentNodeId = parent[currentNodeId].node;
+      currentNodeId = order[currentNodeId].node;
     }
   }
 
-  return maxFlow;
+  return {
+    maxFlow,
+    order,
+  };
 }
 
 function checkDependencies(graph, allEdges) {
@@ -232,6 +235,7 @@ function addSourceSink(graph, allEdges, verticesQt) {
         id: curEdgeIdString,
         lowerBound: 0,
         origin: '0',
+        originalCapacity: vertex.demand,
         used: false,
         reverse: curReverseEdgeIdString,
       };
@@ -242,6 +246,7 @@ function addSourceSink(graph, allEdges, verticesQt) {
         id: curReverseEdgeIdString,
         lowerBound: 0,
         origin: vertexId,
+        originalCapacity: 0,
         used: false,
         reverse: curEdgeIdString,
       };
@@ -265,6 +270,7 @@ function addSourceSink(graph, allEdges, verticesQt) {
         destiny: sinkId,
         id: curEdgeIdString,
         origin: vertexId,
+        originalCapacity: vertex.demand * -1,
         reverse: curReverseEdgeIdString,
         used: false,
       };
@@ -274,6 +280,7 @@ function addSourceSink(graph, allEdges, verticesQt) {
         destiny: vertexId,
         id: curEdgeIdString,
         origin: sinkId,
+        originalCapacity: 0,
         reverse: curEdgeIdString,
         used: false,
       };
@@ -294,18 +301,49 @@ function addSourceSink(graph, allEdges, verticesQt) {
   return sinkId;
 }
 
+function getResult(allEdges, connectionsEdges) {
+  return connectionsEdges.map(connectionEdge => {
+    const originalEdge = allEdges[connectionEdge];
+    const reverseEdge = allEdges[originalEdge.reverse];
+    const flow = originalEdge.lowerBound + reverseEdge.capacity;
+
+    return flow;
+  });
+}
+
+function hasCirculation(graph, allEdges, sinkId, maxFlow) {
+  const sinkDemand = Array.from(graph[sinkId].reverseEdges).reduce((acc, edgeId) => {
+    const edge = allEdges[edgeId];
+    const edgeReverse = allEdges[edge.reverse];
+    const vertex = graph[edgeReverse.origin];
+
+    console.log(vertex);
+
+    return acc + vertex.demand;
+  }, 0);
+
+  console.log('SINKDEMAND', sinkDemand, maxFlow);
+
+  return sinkDemand === maxFlow;
+}
+
 function circulationNetwork(verticesQt, connections) {
-  const {allEdges, graph} = buildGraph(connections);
+  const {allEdges, connectionsEdges, graph} = buildGraph(connections);
 
   checkDependencies(graph, allEdges);
 
   updateCapacities(allEdges);
 
   const sinkId = addSourceSink(graph, allEdges, verticesQt);
+  const { maxFlow: networkFlow, order } = maxFlow(graph, allEdges, '0', sinkId);
 
-  maxFlow(graph, allEdges, '0', sinkId);
+  if (!hasCirculation(graph, allEdges, sinkId, networkFlow)) {
+    return 'NO';
+  }
 
-  console.log(graph, allEdges);
+  const result = getResult(allEdges, connectionsEdges);
+
+  return `YES\n${result.join('\n')}`;
 }
 
 function test(onlyTest) {
