@@ -11,7 +11,7 @@
 let PROFILE = false;
 let VERBOSE = false;
 let EDGE_ID = 0;
-const MIN_WINDOW_SIZE = 2;
+const MIN_WINDOW_SIZE = 5;
 
 const readline = require('readline');
 
@@ -45,6 +45,114 @@ const readLines = () => {
   rl.once('line', readLine);
 };
 
+function checkAComesBeforeB(a, b) {
+  let weight = 0;
+  let windowSize = 0;
+
+  while (true) {
+    windowSize++;
+
+    const query = a.slice(-windowSize);
+
+    if (b.substring(0, windowSize) === query) {
+      weight = windowSize;
+
+      if (windowSize === b.length) {
+        break;
+      }
+    } else {
+      break;
+    }
+  }
+
+  return weight;
+}
+
+function buildGraph(reads) {
+  if (PROFILE) {
+    console.time('build_graph');
+  }
+
+  const graph = {};
+  const allEdges = {};
+  let highestWeightNode = '0';
+  let lowestWeightNode = '0';
+
+  graph[0] = {
+    id: '0',
+    read: reads[0],
+    edges: new Set(),
+    reverseEdges: new Set(),
+    visited: false,
+    totalWeight: 0,
+  };
+
+  for (let i = 0; i < reads.length; i++) {
+    for (let j = i + 1; j < reads.length; j++) {
+      if (!graph[j]) {
+        graph[j] = {
+          id: j.toString(),
+          read: reads[j],
+          edges: new Set(),
+          reverseEdges: new Set(),
+          visited: false,
+          totalWeight: 0,
+        };
+      }
+
+      const iJResult = checkAComesBeforeB(reads[i], reads[j]);
+      const jIResult = checkAComesBeforeB(reads[j], reads[i]);
+
+      if (iJResult) {
+        const edgeId = EDGE_ID++
+
+        allEdges[edgeId] = { id: edgeId, destiny: j.toString(), weight: iJResult };
+
+        graph[i].edges.add(edgeId);
+        graph[j].reverseEdges.add(edgeId);
+        graph[i].totalWeight += iJResult;
+      }
+
+      if (jIResult) {
+        const edgeId = EDGE_ID++
+
+        allEdges[edgeId] = { id: EDGE_ID++, destiny: i.toString(), weight: jIResult };
+
+        graph[j].edges.add(edgeId);
+        graph[i].reverseEdges.add(edgeId);
+        graph[j].totalWeight += jIResult;
+      }
+
+      if (graph[i].totalWeight > graph[highestWeightNode].totalWeight) {
+        highestWeightNode = i.toString();
+      }
+
+      if (graph[j].totalWeight > graph[highestWeightNode].totalWeight) {
+        highestWeightNode = j.toString();
+      }
+
+      if (graph[i].totalWeight < graph[highestWeightNode].totalWeight) {
+        lowestWeightNode = i.toString();
+      }
+
+      if (graph[j].totalWeight < graph[highestWeightNode].totalWeight) {
+        lowestWeightNode = j.toString();
+      }
+    }
+  }
+
+  if (PROFILE) {
+    console.timeEnd('build_graph');
+  }
+
+  return {
+    allEdges,
+    graph,
+    highestWeightNode,
+    lowestWeightNode,
+  };
+}
+
 function breakReads(originalReads, size) {
   const reads = new Set();
 
@@ -59,27 +167,78 @@ function breakReads(originalReads, size) {
   return reads;
 }
 
-function getKmer(reads) {
-  let currentK = Math.ceil(reads[0].length * 0.6);
-  let bestResult = {
-    k: currentK,
-    reads: 0,
-  };
-
-  while (currentK--) {
-    if (currentK < MIN_WINDOW_SIZE) {
-      break;
-    }
-
-    const kmerReads = breakReads(reads, currentK);
-
-    if (kmerReads.size > bestResult.reads) {
-      bestResult.reads = kmerReads.size;
-      bestResult.k = currentK;
+function isGraphBalanced(graph) {
+  for (let key in graph) {
+    if (graph[key].edges.size !== graph[key].reverseEdges.size) {
+      return false;
     }
   }
 
-  return bestResult.k;
+  return true;
+}
+
+function hierholzer(graph, allEdges) {
+  const stack = ['1'];
+  const path = [];
+  const usedEdges = new Set();
+
+  while (stack.length) {
+    const curVertexId = stack[stack.length - 1];
+    const vertexUnusedEdges = Array.from(graph[curVertexId].edges).filter(e => !usedEdges.has(e));
+
+    if (vertexUnusedEdges.length) {
+      const nextEdgeId = vertexUnusedEdges[vertexUnusedEdges.length - 1];
+
+      stack.push(allEdges[nextEdgeId].destiny);
+      usedEdges.add(nextEdgeId);
+    } else {
+      path.push(stack.pop());
+    }
+  }
+
+  if (path[path.length - 1] === path[0]) {
+    path.shift();
+  }
+
+  return path.reverse();
+}
+
+function getKmer(reads) {
+  let currentK = reads[0].length;
+
+  while (currentK--) {
+    console.log(`CurrentK ${currentK}`);
+    if (currentK < MIN_WINDOW_SIZE) {
+      console.error(`Current Kmer size lower than ${MIN_WINDOW_SIZE}`);
+      break;
+    }
+
+    EDGE_ID = 0;
+
+    const kmerReads = breakReads(reads, currentK);
+
+    const { allEdges, graph, highestWeightNode, lowestWeightNode } = buildGraph(Array.from(kmerReads));
+
+    if (!isGraphBalanced(graph, allEdges)) {
+      if (VERBOSE) {
+        console.error('Graph is not balanced');
+      }
+      continue;
+    }
+
+    // const eulerianPath = hierholzer(graph, allEdges);
+
+    // if (!eulerianPath.length) {
+    //   if (VERBOSE) {
+    //     console.error('No Eulerian Path');
+    //   }
+    //   continue;
+    // }
+
+    break;
+  }
+
+  return currentK + 1;
 }
 
 function generateRandomRead(size) {
@@ -88,6 +247,7 @@ function generateRandomRead(size) {
 
   for (let i = 0; i < size; i++) {
     const randomLetter = Math.floor(Math.random() * letters.length);
+    console.log(randomLetter);
     read.push(letters[randomLetter]);
   }
 
@@ -216,7 +376,7 @@ function test(outputType, onlyTest) {
           'TCAAACTTGGAGGCGTATGAAAATGGTACACTGAATGTTTGGGATGTGTAAACGCTCATAGGCGTCAGGGGGAAGTGCCACCGACTCATGTTAAATATCA',
         ]
       ),
-      expected: 11
+      expected: 3
     },
   ];
 
