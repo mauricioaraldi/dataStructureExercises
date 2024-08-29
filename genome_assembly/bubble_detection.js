@@ -77,6 +77,10 @@ function checkAComesBeforeB(a, b) {
 }
 
 function buildDeBruijnGraph(reads, size) {
+  const bubbleNodes = {
+    in: {},
+    out: {},
+  };
   const graph = {};
   let lastRead = '';
 
@@ -88,10 +92,16 @@ function buildDeBruijnGraph(reads, size) {
 
       if (!graph[curRead]) {
         graph[curRead] = new Set();
+
+        bubbleNodes.in[curRead] = 0;
+        bubbleNodes.out[curRead] = 0;
       }
 
-      if (lastRead) {
+      if (lastRead && !graph[lastRead].has(curRead)) {
         graph[lastRead].add(curRead);
+
+        bubbleNodes.out[lastRead]++;
+        bubbleNodes.in[curRead]++;
       }
 
       lastRead = curRead;
@@ -100,55 +110,42 @@ function buildDeBruijnGraph(reads, size) {
     lastRead = '';
   });
 
-  return graph;
-}
+  for (let node in bubbleNodes.in) {
+    if (bubbleNodes.in[node] < 2) {
+      delete bubbleNodes.in[node];
+    }
 
-function dfs(graph, startNode) {
-  const order = [];
-  const stack = [startNode];
-  const visited = new Set();
-
-  while(stack.length) {
-    const currentVertex = stack.pop();
-
-    if (!visited.has(currentVertex)) {
-      visited.add(currentVertex);
-      order.push(currentVertex);
-
-      const neighbors = Array.from(graph[currentVertex]);
-
-      neighbors.forEach(destiny => {
-        if (neighbors.length > 1) {
-
-        }
-
-        if (!visited.has(destiny)) {
-          stack.push(destiny);
-        }
-      });
+    if (bubbleNodes.out[node] < 2) {
+      delete bubbleNodes.out[node];
     }
   }
 
-  return order;
+  return {
+    bubbleNodes,
+    graph,
+  };
 }
 
-function findAllPaths(graph, startNode, bubbleThreshold) {
+function findAllPaths(graph, startNode, endNode, bubbleThreshold) {
   const stack = [[startNode]];
   const paths = [];
 
-  while (stack.length > 0) {
+  while (stack.length) {
     const path = stack.pop();
     const lastNode = path[path.length - 1];
     const neighbors = graph[lastNode];
 
-    if (!neighbors.size) {
+    if (lastNode === endNode) {
       paths.push(path);
+      continue;
+    }
+
+    if (!neighbors.size) {
+      continue;
     }
 
     for (let neighbor of neighbors) {
-      if (path.length >= bubbleThreshold) {
-        paths.push(path);
-      } else {
+      if (path.length < bubbleThreshold + 1) {
         let newPath = path.concat(neighbor);
         stack.push(newPath);
       }
@@ -158,59 +155,74 @@ function findAllPaths(graph, startNode, bubbleThreshold) {
   return paths;
 }
 
+function isDisjoint(path1, path2) {
+  const path1Core = path1.slice(1, -1);
+  const path2Core = path2.slice(1, -1);
+
+  for (let i = 0; i < path1Core.length; i++) {
+    if (path2Core.includes(path1Core[i])) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function isBubble(path1, path2) {
   return (
     path1[0] === path2[0] &&
     path1[path1.length - 1] === path2[path2.length - 1] &&
-    path1.length > 2 &&
-    path2.length > 2 &&
-    path1.toString() !== path2.toString()
+    // path1.length > 2 &&
+    // path2.length > 2 &&
+    isDisjoint(path1, path2)
   );
 }
 
-function detectBubbles(graph, bubbleThreshold) {
+function detectBubbles(graph, bubbleThreshold, bubbleNodes) {
   const bubbles = {};
-  const threshold = bubbleThreshold + 2;
   let bubblesQt = 0;
 
-  for (const startNode in graph) {
-    const neighbors = graph[startNode];
+   for (let nodeOut in bubbleNodes.out) {
+      for (let nodeIn in bubbleNodes.in) {
+        if (nodeOut === nodeIn) {
+          continue;
+        }
 
-    if (neighbors.size > 1) {
-      const paths = findAllPaths(graph, startNode, threshold);
+        console.log(nodeOut, nodeIn);
 
-      if (paths.length < 2) {
-        continue;
-      }
+        const neighbors = graph[nodeOut];
+        const paths = findAllPaths(graph, nodeOut, nodeIn, bubbleThreshold);
 
-      for (let i = 0; i < paths.length; i++) {
-        for (let j = i + 1; j < paths.length; j++) {
-          if (isBubble(paths[i], paths[j])) {
-            const pathIString = paths[i].join('');
-            const pathJString = paths[j].join('');
+        if (paths.length < 2) {
+          continue;
+        }
 
-            if (!bubbles[pathIString]) {
-              bubbles[pathIString] = new Set();
-            }
+        for (let i = 0; i < paths.length; i++) {
+          for (let j = i + 1; j < paths.length; j++) {
+            if (isBubble(paths[i], paths[j])) {
+              const pathIString = paths[i].join('');
+              const pathJString = paths[j].join('');
 
-            console.log(paths[i], paths[j]);
+              if (!bubbles[pathIString]) {
+                bubbles[pathIString] = new Set();
+              }
 
-            if (!bubbles[pathIString].has(pathJString)) {
-              bubbles[pathIString].add(pathJString);
-              bubblesQt++;
+              if (!bubbles[pathIString].has(pathJString)) {
+                bubbles[pathIString].add(pathJString);
+                bubblesQt++;
+              }
             }
           }
         }
       }
     }
-  }
 
   return bubblesQt;
 }
 
 function getResult(bubbleThreshold, k, reads) {
-  const graph = buildDeBruijnGraph(reads, k - 1);
-  const bubblesQt = detectBubbles(graph, bubbleThreshold);
+  const { bubbleNodes, graph } = buildDeBruijnGraph(reads, k - 1);
+  const bubblesQt = detectBubbles(graph, bubbleThreshold, bubbleNodes);
 
   return bubblesQt;
 }
