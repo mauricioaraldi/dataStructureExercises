@@ -126,33 +126,38 @@ function buildDeBruijnGraph(reads, size) {
   };
 }
 
-function findAllPaths(graph, startNode, endNode, bubbleThreshold) {
+function findAllPaths(graph, startNode, bubbleThreshold, bubbleNodes) {
   const stack = [[startNode]];
   const paths = [];
+  const threshold = bubbleThreshold + 1;
 
   while (stack.length) {
     const path = stack.pop();
     const lastNode = path[path.length - 1];
     const neighbors = graph[lastNode];
 
-    if (lastNode === endNode) {
+    if (path.length >= threshold || !neighbors.size) {
       paths.push(path);
       continue;
     }
 
-    if (!neighbors.size) {
-      continue;
-    }
-
     for (let neighbor of neighbors) {
-      if (path.length < bubbleThreshold + 1) {
+      if (path.length < threshold) {
         let newPath = path.concat(neighbor);
         stack.push(newPath);
       }
     }
   }
 
-  return paths;
+  return paths.filter(path => {
+    for (let nodeIn in bubbleNodes.in) {
+      if (path.includes(nodeIn)) {
+        return true;
+      }
+    }
+
+    return false;
+  });
 }
 
 function isDisjoint(path1, path2) {
@@ -168,54 +173,82 @@ function isDisjoint(path1, path2) {
   return true;
 }
 
-function isBubble(path1, path2) {
-  return (
-    path1[0] === path2[0] &&
-    path1[path1.length - 1] === path2[path2.length - 1] &&
-    // path1.length > 2 &&
-    // path2.length > 2 &&
-    isDisjoint(path1, path2)
-  );
+function getBubblePaths(path1, path2, bubbleNodes) {
+  if (path1[0] !== path2[0]) {
+    return false;
+  }
+
+  // console.log(111111, path1, path2);
+
+  let bubblePath1;
+  let bubblePath2;
+
+  for (let i = 1; i < path1.length; i++) {
+    // if path1 node is in IN
+    if (bubbleNodes.in[path1[i]]) {
+      const path2NodeIndex = path2.indexOf(path1[i]);
+
+      // and exist in path2
+      if (path2NodeIndex > -1) {
+        bubblePath1 = path1.slice(0, i + 1);
+        bubblePath2 = path2.slice(0, path2NodeIndex + 1);
+        break;
+      }
+    }
+  }
+
+  // console.log(22222, bubblePath1, bubblePath2);
+
+  if (
+    !bubblePath1 || !bubblePath2 ||
+    bubblePath1[bubblePath1.length - 1] !== bubblePath2[bubblePath2.length - 1] ||
+    bubblePath1.length < 2 ||
+    bubblePath2.length < 2 ||
+    bubblePath1.toString() === bubblePath2.toString() ||
+    !isDisjoint(bubblePath1, bubblePath2)
+  ) {
+    return null;
+  }
+
+  return [bubblePath1, bubblePath2];
 }
 
 function detectBubbles(graph, bubbleThreshold, bubbleNodes) {
   const bubbles = {};
   let bubblesQt = 0;
 
-   for (let nodeOut in bubbleNodes.out) {
-      for (let nodeIn in bubbleNodes.in) {
-        if (nodeOut === nodeIn) {
+  for (let nodeOut in bubbleNodes.out) {
+    const neighbors = graph[nodeOut];
+    const paths = findAllPaths(graph, nodeOut, bubbleThreshold, bubbleNodes);
+
+    if (paths.length < 2) {
+      continue;
+    }
+
+    for (let i = 0; i < paths.length; i++) {
+      for (let j = i + 1; j < paths.length; j++) {
+        const bubblePaths = getBubblePaths(paths[i], paths[j], bubbleNodes);
+
+        if (!bubblePaths) {
           continue;
         }
 
-        console.log(nodeOut, nodeIn);
+        // console.log(333333, bubblePaths);
 
-        const neighbors = graph[nodeOut];
-        const paths = findAllPaths(graph, nodeOut, nodeIn, bubbleThreshold);
+        const path1String = bubblePaths[0].join('');
+        const path2String = bubblePaths[1].join('');
 
-        if (paths.length < 2) {
-          continue;
+        if (!bubbles[path1String]) {
+          bubbles[path1String] = new Set();
         }
 
-        for (let i = 0; i < paths.length; i++) {
-          for (let j = i + 1; j < paths.length; j++) {
-            if (isBubble(paths[i], paths[j])) {
-              const pathIString = paths[i].join('');
-              const pathJString = paths[j].join('');
-
-              if (!bubbles[pathIString]) {
-                bubbles[pathIString] = new Set();
-              }
-
-              if (!bubbles[pathIString].has(pathJString)) {
-                bubbles[pathIString].add(pathJString);
-                bubblesQt++;
-              }
-            }
-          }
+        if (!bubbles[path1String].has(path2String)) {
+          bubbles[path1String].add(path2String);
+          bubblesQt++;
         }
       }
     }
+  }
 
   return bubblesQt;
 }
@@ -289,7 +322,7 @@ function test(outputType, onlyTest) {
           'AAABBCBA',
         ]
       ),
-      expected: 4
+      expected: 6
     },
 
     {
