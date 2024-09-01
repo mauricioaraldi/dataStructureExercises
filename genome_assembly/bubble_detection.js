@@ -54,74 +54,51 @@ const readLines = () => {
   });
 };
 
-function checkAComesBeforeB(a, b) {
-  let weight = 0;
-  let windowSize = 0;
-
-  while (true) {
-    windowSize++;
-
-    const query = a.slice(-windowSize);
-
-    if (b.substring(0, windowSize) === query) {
-      weight = windowSize;
-
-      if (windowSize === b.length) {
-        break;
-      }
-    } else {
-      break;
-    }
-  }
-
-  return weight;
-}
-
 function buildDeBruijnGraph(reads, size) {
-  const bubbleNodes = {
-    in: {},
-    out: {},
-  };
-  const graph = {};
-  let lastRead = '';
+  const bubbleNodes = new Map([
+    ['in', new Map()],
+    ['out', new Map()],
+  ]);
+  const graph = new Map();
+  let lastCutRead = '';
 
   reads.forEach(read => {
     const maxWindowIndex = read.length - size;
 
     for (let i = 0; i <= maxWindowIndex; i++) {
-      const curRead = read.substring(i, i + size);
+      const cutRead = read.substring(i, i + size);
 
-      if (curRead === lastRead) {
+      if (cutRead === lastCutRead) {
         continue;
       }
 
-      if (!graph[curRead]) {
-        graph[curRead] = new Set();
+      if (!graph.has(cutRead)) {
+        graph.set(cutRead, new Set());
 
-        bubbleNodes.in[curRead] = 0;
-        bubbleNodes.out[curRead] = 0;
+        bubbleNodes.get('in').set(cutRead, 0);
+        bubbleNodes.get('out').set(cutRead, 0);
       }
 
-      if (lastRead && !graph[lastRead].has(curRead)) {
-        graph[lastRead].add(curRead);
+      if (lastCutRead && !graph.get(lastCutRead).has(cutRead)) {
+        graph.get(lastCutRead).add(cutRead);
 
-        bubbleNodes.out[lastRead]++;
-        bubbleNodes.in[curRead]++;
+        bubbleNodes.get('out').set(lastCutRead, bubbleNodes.get('out').get(lastCutRead) + 1);
+        bubbleNodes.get('in').set(cutRead, bubbleNodes.get('in').get(cutRead) + 1);
       }
 
-      lastRead = curRead;
+      lastCutRead = cutRead;
     }
 
-    lastRead = '';
+    lastCutRead = '';
   });
 
-  for (let node in bubbleNodes.in) {
-    if (bubbleNodes.in[node] < 2) {
-      delete bubbleNodes.in[node];
+  for (let [node, count] of bubbleNodes.get('in')) {
+    if (count < 2) {
+      bubbleNodes.get('in').delete(node);
     }
 
-    if (bubbleNodes.out[node] < 2) {
-      delete bubbleNodes.out[node];
+    if (bubbleNodes.get('out').get(node) < 2) {
+      bubbleNodes.get('out').delete(node);
     }
   }
 
@@ -131,35 +108,43 @@ function buildDeBruijnGraph(reads, size) {
   };
 }
 
-function findAllPaths(graph, startNode, endNode, bubbleThreshold, bubbleNodes) {
+function findAllPaths(graph, startNode, bubbleThreshold, bubbleNodes, dictionary) {
   const stack = [[startNode]];
-  const paths = [];
-  const threshold = bubbleThreshold + 1;
 
   while (stack.length) {
     const path = stack.pop();
     const lastNode = path[path.length - 1];
-    const neighbors = graph[lastNode];
+    const neighbors = graph.get(lastNode);
 
-    if (lastNode === endNode) {
-      paths.push(path);
+    if (bubbleNodes.get('out').has(lastNode) && lastNode !== startNode) {
+      if (!dictionary.get(startNode).has(lastNode)) {
+        dictionary.get(startNode).set(lastNode, []);
+      }
+
+      dictionary.get(startNode).get(lastNode).push(path.slice(1, -1));
 
       continue;
     }
 
+    if (bubbleNodes.get('in').has(lastNode) && lastNode !== startNode) {
+      if (!dictionary.get(startNode).has(lastNode)) {
+        dictionary.get(startNode).set(lastNode, []);
+      }
+
+      dictionary.get(startNode).get(lastNode).push(path.slice(1, -1));
+    }
+
     for (let neighbor of neighbors) {
-      if (path.length < threshold) {
+      if (!path.includes(neighbor) && path.length < bubbleThreshold + 1) {
         let newPath = path.concat(neighbor);
         stack.push(newPath);
       }
     }
   }
-
-  return paths;
 }
 
 function isDisjoint(path1, path2) {
-  for (let i = 1; i <= path1.length; i++) {
+  for (let i = 0; i < path1.length; i++) {
     if (path2.includes(path1[i])) {
       return false;
     }
@@ -168,55 +153,68 @@ function isDisjoint(path1, path2) {
   return true;
 }
 
-function getBubblePaths(path1, path2, bubbleNodes) {
-  if (path1[0] !== path2[0]) {
-    return false;
-  }
+function mixPaths(dictionary, bubbleThreshold) {
+  const reverseDictionary = Array.from(dictionary).reverse();
 
-  if (VERBOSE) {
-    console.log({ path1, path2 });
-  }
+  for (let i in reverseDictionary) {
+    const [externalNodeStart, externalNodeStartConnections] = reverseDictionary[i];
 
-  if (
-    !path1 || !path2 ||
-    path1[path1.length - 1] !== path2[path2.length - 1] ||
-    path1.length < 2 ||
-    path2.length < 2 ||
-    path1.toString() === path2.toString() ||
-    !isDisjoint(path1, path2)
-  ) {
-    return null;
-  }
+    for (let [externalNodeEnd, externalNodeEndPaths] of externalNodeStartConnections) {
+      if (dictionary.has(externalNodeEnd)) {
+        for (let [internalNodeEnd, internalNodeEndPaths] of dictionary.get(externalNodeEnd)) {
+          if (externalNodeStart === internalNodeEnd) {
+            continue;
+          }
 
-  return [path1, path2];
+          const externalPaths = dictionary.get(externalNodeStart).get(externalNodeEnd);
+          const internalPaths = dictionary.get(externalNodeEnd).get(internalNodeEnd);
+
+          for (let i = 0; i < externalPaths.length; i++) {
+            for (let j = 0; j < internalPaths.length; j++) {
+              const externalPath = externalPaths[i];
+              const internalPath = internalPaths[j];
+
+              if (externalPath.length + internalPath.length < bubbleThreshold) {
+                if (!dictionary.get(externalNodeStart).has(internalNodeEnd)) {
+                  dictionary.get(externalNodeStart).set(internalNodeEnd, []);
+                }
+
+                const newPath = [...externalPath, externalNodeEnd, ...internalPath];
+
+                dictionary.get(externalNodeStart).get(internalNodeEnd).push(newPath);
+              }
+            }
+          }
+        }
+      }
+    }
+  }
 }
 
 function detectBubbles(graph, bubbleThreshold, bubbleNodes) {
-  const bubbles = {};
+  const bubbles = new Map();
+  const dictionary = new Map();
   let bubblesQt = 0;
 
-  for (let nodeOut in bubbleNodes.out) {
-    for (let nodeIn in bubbleNodes.in) {
-      if (nodeOut === nodeIn) {
-        continue;
-      }
+  for (let [nodeOut, count] of bubbleNodes.get('out')) {
+    dictionary.set(nodeOut, new Map());
 
-      console.log('find_all_paths');
-      console.time('find_all_paths');
-      const paths = findAllPaths(graph, nodeOut, nodeIn, bubbleThreshold, bubbleNodes);
-      console.timeEnd('find_all_paths');
+    if (PROFILE) { console.time(`find_all_paths_${nodeOut}`) }
+    findAllPaths(graph, nodeOut, bubbleThreshold, bubbleNodes, dictionary);
+    if (PROFILE) { console.timeEnd(`find_all_paths_${nodeOut}`) }
+  }
 
-      if (paths.length < 2) {
-        continue;
-      }
+  mixPaths(dictionary, bubbleThreshold);
 
-      console.log('get_bubbles');
-      console.time('get_bubbles');
+  for (let [nodeOut, count] of dictionary) {
+    if (PROFILE) { console.time(`get_bubbles_${nodeOut}`) }
+    for (let [nodeIn, paths] of dictionary.get(nodeOut)) {
       for (let i = 0; i < paths.length; i++) {
         for (let j = i + 1; j < paths.length; j++) {
-          const bubblePaths = getBubblePaths(paths[i], paths[j], bubbleNodes);
+          const path1 = paths[i];
+          const path2 = paths[j];
 
-          if (!bubblePaths) {
+          if (!isDisjoint(path1, path2)) {
             continue;
           }
 
@@ -224,28 +222,34 @@ function detectBubbles(graph, bubbleThreshold, bubbleNodes) {
             console.log('BubblePaths', bubblePaths);
           }
 
-          const path1String = bubblePaths[0].join('');
-          const path2String = bubblePaths[1].join('');
+          const path1String = `${nodeOut}${path1.join('')}${nodeIn}`;
+          const path2String = `${nodeOut}${path2.join('')}${nodeIn}`;
 
-          if (!bubbles[path1String]) {
-            bubbles[path1String] = new Set();
+          if (path1String === path2String) {
+            continue;
           }
 
-          if (!bubbles[path1String].has(path2String)) {
-            bubbles[path1String].add(path2String);
+          if (!bubbles.has(path1String)) {
+            bubbles.set(path1String, new Set());
+          }
+
+          if (!bubbles.get(path1String).has(path2String)) {
+            bubbles.get(path1String).add(path2String);
             bubblesQt++;
           }
         }
       }
-      console.timeEnd('get_bubbles');
     }
+    if (PROFILE) { console.timeEnd(`get_bubbles_${nodeOut}`) }
   }
 
   return bubblesQt;
 }
 
 function getResult(k, bubbleThreshold, reads) {
+  if (PROFILE) { console.time(`build_graph`) }
   const { bubbleNodes, graph } = buildDeBruijnGraph(reads, k - 1);
+  if (PROFILE) { console.timeEnd(`build_graph`) }
 
   if (EXPORT) {
     return exportDrawIoGraph(graph);
